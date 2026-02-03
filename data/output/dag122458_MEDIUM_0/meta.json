@@ -1,0 +1,36 @@
+{
+    "etl_info": {
+        "source_id": "122458",
+        "original_file": "GRAPH_S_T_122458.txt",
+        "raw_node_count": 122457,
+        "mapped_node_count": 115528,
+        "standardized_edge_count": 603040,
+        "topology_params": {
+            "target_capacity": 122457,
+            "sample_size": 6122,
+            "max_hierarchy": 40,
+            "cost_width_factor": 300,
+            "attenuation_rate": 0.1,
+            "link_noise_prob": 0.03,
+            "density_target": 6,
+            "batch_size": 1,
+            "seed": null
+        }
+    },
+    "processing_context": {
+        "profile": "MEDIUM",
+        "version_index": 0,
+        "parameters": {
+            "UNIT_COST_MEAN": 5.0,
+            "UNIT_COST_STD": 3.0,
+            "UNIT_COST_FLOOR": 1.0,
+            "VALUE_CURVE_EXP": 0.85,
+            "VALUATION_NOISE": 0.1,
+            "ROI_TARGET": 0.8,
+            "RISK_PENALTY_RATIO": 0.8,
+            "STRUCTURAL_RISK_SHARE": 0.5,
+            "CONFLICT_INTENSITY": 0.7,
+            "NOISE_INTENSITY": 0.8
+        }
+    }
+}
