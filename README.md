@@ -44,10 +44,11 @@ python plot_summary.py
 | Algorithm | Type | Description |
 | :--- | :--- | :--- |
 | **Greedy** | Heuristic | A one-pass static greedy strategy based on initial gain sorting. |
-| **SGHC** | Heuristic | Shapley-Guided Hill Climbing. Uses Shapley value estimation for initialization. |
-| **NGHC** | Heuristic | Net-Value Greedy Hill Climbing. Uses simple net value for initialization (Ablation). |
+| **SGHC** | Heuristic | **Shapley-Guided Hill Climbing**. Uses Shapley value estimation for initialization. |
+| **NGHC** | Heuristic | Net-Value Greedy Hill Climbing. Uses simple net value for initialization (Ablation for SGHC). |
 | **SA** | Meta-heuristic | Standard Simulated Annealing with random restarts. |
 | **SASA** | Meta-heuristic | **Structure-Aware Simulated Annealing**. Our proposed method utilizing topology analysis. |
+| **SASAX** | Meta-heuristic | Use synergy only and use conflict only. (Abaltion for SASA) |
 | **QP / QPR** | Relaxation | Quadratic Programming Relaxation solved via OSQP with heuristic rounding. |
 | **QPBO** | Relaxation | Quadratic Pseudo-Boolean Optimization using Roof Duality (Max-Flow/Min-Cut). |
 | **ILP** | Exact | Integer Linear Programming solver (using CBC) for ground truth verification. |
