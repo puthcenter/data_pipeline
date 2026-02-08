@@ -43,12 +43,12 @@ python plot_summary.py
 
 | Algorithm | Type | Description |
 | :--- | :--- | :--- |
-| **Greedy** | Heuristic | A one-pass static greedy strategy based on initial gain sorting. |
+| **Greedy** | Heuristic | A one-pass greedy strategy based on initial gain sorting. |
 | **SGHC** | Heuristic | **Shapley-Guided Hill Climbing**. Uses Shapley value estimation for initialization. |
 | **NGHC** | Heuristic | Net-Value Greedy Hill Climbing. Uses simple net value for initialization (Ablation for SGHC). |
 | **SA** | Meta-heuristic | Standard Simulated Annealing with random restarts. |
-| **SASA** | Meta-heuristic | **Structure-Aware Simulated Annealing**. Our proposed method utilizing topology analysis. |
-| **SASAX** | Meta-heuristic | Use synergy only and use conflict only. (Abaltion for SASA) |
+| **SASA** | Meta-heuristic | **Structure-Aware Simulated Annealing**. Use synergy only and use conflict to guide simulated annealing.|
+| **SASAX** | Meta-heuristic | Use synergy only or use conflict only. (Abaltion for SASA) |
 | **QP / QPR** | Relaxation | Quadratic Programming Relaxation solved via OSQP with heuristic rounding. |
 | **QPBO** | Relaxation | Quadratic Pseudo-Boolean Optimization using Roof Duality (Max-Flow/Min-Cut). |
 | **ILP** | Exact | Integer Linear Programming solver (using CBC) for ground truth verification. |
@@ -56,4 +56,5 @@ python plot_summary.py
 ## 📊 Evaluation Metrics
 * **Objective Score:** The total weight of the selected parent closure minus negative externalities.
 * **Convergence Time:** Time taken to reach the best solution (excluding I/O overhead).
+* **Convergence Trend:** The evolution of the incumbent best-known solution (i.e., the best feasible solution found so far) for each algorithm over time or function evaluations.
 * **Jaccard Similarity:** Measures the overlap of selected node sets between different algorithms.
