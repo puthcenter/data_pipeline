@@ -10,7 +10,7 @@ This repository contains the implementation and benchmarking suite for **Profit 
 >
 > The algorithm design and parameter calibration are informed by real-world data-flow graph characteristics from Alibaba's production environment. **The original production data cannot be disclosed due to trade secret protection.** Instead, `data/pipeline_set.py` provides a full synthetic data generator based on a topology manifold approach, producing DAG datasets with statistical properties consistent with real-world observations. De-identified data samples may be added in the future.
 
-> **🏗️ 项目状态 / Project Status**: 持续更新中，部分算法（NGHC, SASAX）即将补充。欢迎 Watch 本仓库以获取更新。 / Under active development. Several algorithms (NGHC, SASAX) will be added soon. Watch this repo for updates.
+> **🏗️ 项目状态 / Project Status**: 持续更新中。欢迎 Watch 本仓库以获取更新。 / Under active development. Watch this repo for updates.
 
 ## 📂 Repository Structure
 
@@ -55,14 +55,14 @@ pip install pandas numpy networkx scipy matplotlib seaborn pulp osqp
 | Algorithm | Type | Description |
 | :--- | :--- | :--- |
 | **Greedy** | Heuristic | One-pass greedy strategy based on initial marginal gain sorting with parent closure expansion. |
+| **NGHC** | Heuristic | **Net-Value Greedy Hill Climbing**. Ablation variant of SGHC — uses simple net value (value − cost) for initialization instead of Shapley estimation. |
 | **SGHC** | Heuristic | **Shapley-Guided Hill Climbing**. Uses Shapley value estimation over the externality graph to initialize the search, then performs local hill climbing. |
 | **SA** | Meta-heuristic | Standard Simulated Annealing with adaptive temperature scheduling and random restarts. |
-| **SASA** | Meta-heuristic | **Structure-Aware Simulated Annealing**. Leverages synergy/conflict structure from the externality graph to guide neighborhood exploration. |
+| **SASA** | Meta-heuristic | **Structure-Aware Simulated Annealing**. Leverages both synergy and conflict structure from the externality graph to guide neighborhood exploration. |
+| **SASAX** | Meta-heuristic | Ablation variant of SASA — uses synergy-only or conflict-only guidance to isolate the contribution of each structural signal. |
 | **QP** | Relaxation | Quadratic Programming relaxation via OSQP solver with heuristic rounding to feasible integer solutions. |
 | **QPBO** | Relaxation | Quadratic Pseudo-Boolean Optimization via Roof Duality, solved as a max-flow/min-cut problem on a specially constructed graph. |
 | **SCIP** | Exact | Integer Linear Programming solver using PuLP + SCIP backend, for ground truth verification on small-to-medium instances. |
-| **NGHC** | Heuristic | *(Coming soon)* Net-Value Greedy Hill Climbing — ablation variant of SGHC using simple net value for initialization. |
-| **SASAX** | Meta-heuristic | *(Coming soon)* Ablation variant of SASA using synergy-only or conflict-only guidance. |
 
 ## 📊 评估指标 / Evaluation Metrics
 
