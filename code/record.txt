@@ -1,0 +1,46 @@
+--- Main Runner Log Started at 2026-04-07 10:34:17 ---
+--- Main Runner (Benchmark Edition) ---
+--- Time: 2026-04-07 10:34:17 ---
+--- Main Runner Started ---
+
+==================================================
+📊 正在读取和汇总 Benchmark 结果...
+   (只处理 EASY, MEDIUM, HARD, EXTREME 版本)
+==================================================
+🔍 Scanning output directories...
+✅ Processed 36 benchmark folders. Skipped 0 basic folders.
+
+📊 性能汇总表 (按难度排序):
+         Category  Method  Average_Score  Average_Time  Average_Result_Nodes  Num_Runs
+0   dag101_MEDIUM  greedy   1.706075e+06     17.040630          14839.333333         3
+1   dag101_MEDIUM    sghc   1.869618e+06    247.860877          13656.000000         3
+2   dag101_MEDIUM      sa   1.841039e+06   3002.538687          14785.333333         3
+3   dag101_MEDIUM    sasa   1.876556e+06   3001.137441          14297.666667         3
+4   dag101_MEDIUM      qp   1.820144e+06   2165.888439          12180.333333         3
+5   dag101_MEDIUM    qpbo   1.412825e+05   3000.530802           1831.000000         3
+6   dag102_MEDIUM  greedy   1.148243e+06     11.612686          14678.000000         3
+7   dag102_MEDIUM    sghc   1.332852e+06    163.268835          11396.000000         3
+8   dag102_MEDIUM      sa   1.281530e+06   3001.656089          13702.000000         3
+9   dag102_MEDIUM    sasa   1.410263e+06   3000.861453          12146.000000         3
+10  dag102_MEDIUM      qp   1.372982e+06    871.748027          11309.000000         3
+11  dag102_MEDIUM    qpbo   4.485165e+05   3001.176874           5179.333333         3
+12  dag103_MEDIUM  greedy   1.101844e+06     10.401531          14380.000000         3
+13  dag103_MEDIUM    sghc   1.307430e+06    157.450591          10741.000000         3
+14  dag103_MEDIUM      sa   1.226279e+06   3001.874459          13298.666667         3
+15  dag103_MEDIUM    sasa   1.360299e+06   3000.983598          11568.000000         3
+16  dag103_MEDIUM      qp   1.330301e+06    837.035550          10832.666667         3
+17  dag103_MEDIUM    qpbo   4.014314e+05   3000.722349           4964.333333         3
+18  dag201_MEDIUM  greedy   1.922362e+06      2.858012          16261.333333         3
+19  dag201_MEDIUM    sghc   2.050187e+06     73.314899          15485.666667         3
+
+✅ 性能汇总 CSV 已保存到: /home/hj/graph_p/code/summary.csv
+✅ 收敛历史总表 CSV 已保存到: /home/hj/graph_p/code/convergence_summary.csv (Rows: 29458)
+
+🔗 节点重合度分析:
+✅ 节点重合度汇总 CSV 已保存到: /home/hj/graph_p/code/overlap_summary.csv
+
+==================================================
+📊 正在调用绘图脚本...
+✅ 绘图脚本执行完毕
+
+--- End: 2026-04-07 10:34:38 ---
