@@ -6,15 +6,15 @@ This repository contains the implementation and benchmarking suite for **Profit 
 
 > **Data Availability Notice**
 >
-> The algorithm design and parameter calibration are informed by real-world data-flow graph characteristics from Alibaba's production environment. **The original production data cannot be disclosed due to trade secret protection.** Instead, `data/pipeline_set.py` provides a full synthetic data generator based on a topology manifold approach, producing DAG datasets with statistical properties consistent with real-world observations. De-identified data samples may be added in the future.
+> The algorithm design and parameter calibration are informed by real-world data-flow graph characteristics from Alibaba's production environment. **The original production data cannot be disclosed due to trade secret protection.** A single de-identified real-world sample (`dag121037_MEDIUM_0`, ~109K nodes, ~564K edges) is provided in `data/output/` for reference. Additional samples may be added in the future. For full-scale benchmarking, use the synthetic data generator `data/pipeline_set.py`.
 
 > **Project Status**: Under active development. Watch this repo for updates.
 
 ## Repository Structure
 
-* **[`data/`](./data)**: Synthetic dataset generator.
+* **[`data/`](./data)**: Synthetic dataset generator and sample data.
     * `pipeline_set.py` — End-to-end synthetic DAG generation pipeline: topology manifold construction → three-stage economic valuation (ROI, closure cost, externality conflict modeling) → multi-dimensional sensitivity experiment design. Produces 4 dimensions × 3 levels × 3 versions = 36 benchmark datasets.
-    * `data/output/` — Generated dataset directory (**not included in the repo**; run the generator to produce).
+    * `data/output/` — Generated dataset directory (**mostly excluded from the repo**). Currently contains one de-identified real-world sample: `dag121037_MEDIUM_0`.
 * **[`code/`](./code)**: Algorithm implementations and benchmarking framework.
     * `main_runner.py` — Automated benchmark runner: executes all algorithms, aggregates results, and invokes plotting.
     * `plot_summary.py` — Visualization tools (convergence curves, Jaccard similarity matrices).
