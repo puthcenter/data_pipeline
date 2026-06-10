@@ -55,7 +55,7 @@ python sasa.py
 | Algorithm | Type | Description |
 | :--- | :--- | :--- |
 | **Greedy** | Heuristic | One-pass greedy strategy based on initial marginal gain sorting with parent closure expansion. |
-| **NGHC** | Heuristic | **Net-Value Greedy Hill Climbing**. Ablation variant of SGHC — uses simple net value (value − cost) for initialization instead of Shapley estimation. |
+| **NGHC** | Heuristic | Net-Value-Guided Hill Climbing. Ablation variant of SGHC — uses simple net value (value − cost) for initialization instead of Shapley estimation. |
 | **SGHC** | Heuristic | **Shapley-Guided Hill Climbing**. Uses Shapley value estimation over the externality graph to initialize the search, then performs local hill climbing. |
 | **SA** | Meta-heuristic | Standard Simulated Annealing with adaptive temperature scheduling and random restarts. |
 | **SASA** | Meta-heuristic | **Structure-Aware Simulated Annealing**. Leverages both synergy and conflict structure from the externality graph to guide neighborhood exploration. |
