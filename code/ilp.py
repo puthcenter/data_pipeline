@@ -7,7 +7,7 @@ from typing import List, Dict, Set
 import pulp
 
 # ==============================================================================
-# --- 1. 数据加载 (保持原样) ---
+# --- 1. Data loading (unchanged) ---
 # ==============================================================================
 def _safe_float(x):
     try: return float(x)
@@ -22,7 +22,7 @@ def load_all_data(folder: str):
     
     for _, row in node_df.iterrows():
         nid = int(row["id"])
-        # 统一处理成本和价值
+        # Handle costs and values consistently.
         cost = _safe_float(row.get("incoming_cost", row.get("cost", 0.0)))
         val = _safe_float(row.get("value", 0.0))
         is_res = str(row.get("is_result", False)).lower() == 'true'
@@ -70,7 +70,7 @@ def save_result(output_dir, selected_nodes, selected_edges, score, duration, res
     with open(os.path.join(output_dir, 'result_nodes_count.txt'), 'w') as f: f.write(str(len(res_nodes)))
 
 # ==============================================================================
-# --- 2. ILP 精确求解器 ---
+# --- 2. Exact ILP solver ---
 # ==============================================================================
 def run_ilp_solver(
     G: nx.DiGraph, 
@@ -84,88 +84,88 @@ def run_ilp_solver(
     os.makedirs(result_dir, exist_ok=True)
     start_time = time.time()
     
-    # 识别所有节点和结果节点
+    # Identify all nodes and result nodes.
     all_nodes = list(G.nodes())
     result_candidates = [n for n, d in G.nodes(data=True) if d.get('is_result')]
     
     print(f"    [ILP] Building Model for {dataset_name}...")
     print(f"          Nodes: {len(all_nodes)}, Result Candidates: {len(result_candidates)}")
     
-    # --- 定义问题 ---
+    # --- Problem definition ---
     prob = pulp.LpProblem("Node_Selection_Optimization", pulp.LpMaximize)
     
-    # --- 决策变量 ---
-    # y[j]: 节点 j 是否在闭包中 (被选中付费)
+    # --- Decision variables ---
+    # y[j]: whether node j belongs to the closure (selected and paid for).
     y = pulp.LpVariable.dicts("y", all_nodes, cat='Binary')
     
-    # x[i]: 结果节点 i 是否被“激活” (获得收益)
-    # 只有 is_result=True 的节点才有对应的 x 变量
+    # x[i]: whether result node i is activated (earns revenue).
+    # Only nodes with is_result=True have a corresponding x variable.
     x = pulp.LpVariable.dicts("x", result_candidates, cat='Binary')
     
-    # z[(u,v)]: 外部性线性化变量
-    # 仅针对 externality_dict 中存在的对
+    # z[(u,v)]: externality linearization variable.
+    # Only include pairs present in externality_dict.
     z_keys = list(externality_dict.keys())
     z = pulp.LpVariable.dicts("z", z_keys, cat='Binary')
     
-    # --- 目标函数 ---
+    # --- Objective function ---
     # Max: sum(Value * x) - sum(Cost * y) - sum(Penalty * z)
     obj_terms = []
     
-    # 1. 收益 (仅针对 Result Nodes)
+    # 1. Revenue (result nodes only)
     for i in result_candidates:
         val = node_vals.get(i, 0.0)
         if val != 0:
             obj_terms.append(val * x[i])
             
-    # 2. 成本 (针对所有节点)
+    # 2. Costs (all nodes)
     for j in all_nodes:
         cost = node_costs.get(j, 0.0)
         if cost != 0:
-            obj_terms.append(-1 * cost * y[j]) # 减去成本
+            obj_terms.append(-1 * cost * y[j]) # Subtract the cost.
             
-    # 3. 外部性惩罚
+    # 3. Externality penalties
     for (u, v), penalty in externality_dict.items():
         if penalty > 0:
             obj_terms.append(-1 * penalty * z[(u,v)])
             
     prob += pulp.lpSum(obj_terms)
     
-    # --- 约束条件 ---
+    # --- Constraints ---
     
-    # 1. 结果节点依赖约束: 如果选中结果 x[i]，则节点必须存在于闭包 y[i]
+    # 1. Result-node dependency: selecting result x[i] requires node i in the closure y[i].
     for i in result_candidates:
         prob += x[i] <= y[i], f"Res_Dependency_{i}"
         
-    # 2. 图的父闭包约束 (Parent Closure):
-    # 对于边 u -> v (u是父, v是子), 如果子 v 被选中(y[v]=1), 则父 u 必须被选中(y[u]=1)
-    # 即: y[v] <= y[u]
+    # 2. Parent-closure constraints:
+    # For edge u -> v (parent u, child v), selecting v (y[v]=1) requires selecting u (y[u]=1).
+    # That is: y[v] <= y[u].
     for u, v, _ in edges_data:
-        # 注意: G.edges 是 (source, target)，即 source -> target
-        # 在依赖关系中，target 依赖 source。
+        # G.edges contains (source, target) pairs, representing source -> target.
+        # The target depends on the source.
         if u in y and v in y:
             prob += y[v] <= y[u], f"Edge_{u}_{v}"
             
-    # 3. 外部性线性化约束
-    # z_uv = 1 当且仅当 x_u = 1 AND x_v = 1
-    # 由于目标函数是减去 penalty * z (即希望 z 尽可能小),
-    # 我们只需要约束 z 的下界: z >= x_u + x_v - 1
+    # 3. Externality linearization constraints
+    # z_uv = 1 if and only if x_u = 1 AND x_v = 1.
+    # Since the objective subtracts penalty * z (favoring the smallest possible z),
+    # only the lower bound is needed: z >= x_u + x_v - 1.
     for (u, v) in externality_dict:
         if u in x and v in x:
             prob += z[(u,v)] >= x[u] + x[v] - 1, f"Ext_{u}_{v}"
         else:
-            # 如果 u 或 v 不是 result node (理论上不应发生，视数据清理情况)，强制 z=0
+            # Force z=0 if u or v is not a result node (unexpected for properly cleaned data).
             prob += z[(u,v)] == 0
 
     
-    # --- 求解 (优化版) ---
+    # --- Solve with tuned settings ---
     print(f"    [ILP] Solving with SCIP... (Allowing 0.1% optimality gap for speed)")
     
-    # 使用 SCIP 求解器
+    # Use the SCIP solver.
     solver = pulp.SCIP_CMD(
-        msg=1, # 显示求解日志
+        msg=1, # Show solver logs.
         options=[
-            'set limits gap 0.001',       # 等同于 gapRel=0.001: 0.1% 的误差容忍度
-            'set parallel maxnthreads 8'  # 设置最大并行线程数为 8
+            'set limits gap 0.001',       # Equivalent to gapRel=0.001: a 0.1% gap tolerance.
+            'set parallel maxnthreads 8'  # Use at most 8 parallel threads.
         ]
     )
     
@@ -174,29 +174,29 @@ def run_ilp_solver(
     status = pulp.LpStatus[prob.status]
     print(f"    [ILP] Status: {status}")
     
-    # --- 结果提取 ---
+    # --- Extract results ---
     end_time = time.time()
     duration = end_time - start_time
     final_score = pulp.value(prob.objective)
     
-    # 提取被选中的 Result Nodes
+    # Extract the selected result nodes.
     final_res_nodes = set()
     for i in result_candidates:
         if pulp.value(x[i]) and pulp.value(x[i]) > 0.5:
             final_res_nodes.add(i)
             
-    # 提取闭包节点 (y=1)
+    # Extract closure nodes (y=1).
     final_closure_nodes = set()
     for j in all_nodes:
         if pulp.value(y[j]) and pulp.value(y[j]) > 0.5:
             final_closure_nodes.add(j)
             
-    # 提取边
+    # Extract edges.
     final_edges = [(u, v, c) for u, v, c in edges_data 
                    if u in final_closure_nodes and v in final_closure_nodes]
     
-    # 记录单个收敛点 (即最终结果)
-    # 因为是精确解，这里只记录最后的时间点
+    # Record a single convergence point (the final result).
+    # For the exact solver, record only the final time point.
     convergence_record = [{
         "Algorithm": "ilp",
         "Dataset": dataset_name,
@@ -208,7 +208,7 @@ def run_ilp_solver(
     return final_closure_nodes, final_edges, final_score, final_res_nodes
 
 # ==============================================================================
-# --- 执行入口 ---
+# --- Entry point ---
 # ==============================================================================
 def run_experiment(root_dir, algo_name="ilp"):
     if not os.path.exists(root_dir): return

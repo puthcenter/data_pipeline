@@ -3,13 +3,13 @@ import numpy as np
 
 def get_kneedle_point(group):
     """
-    使用 Kneedle 几何距离法寻找平均收敛曲线的大拐点
+    Find the main knee point of the average convergence curve using Kneedle's geometric distance method.
     """
     df_valid = group[group['Best_Value'] != -np.inf].sort_values('Time_Elapsed')
     if df_valid.empty:
         return np.nan
         
-    # 注意：绝对不能用 drop_duplicates，必须保留长平缓期！
+    # Do not use drop_duplicates: long plateaus must be preserved.
     t = df_valid['Time_Elapsed'].values
     v = df_valid['Best_Value'].values
     
@@ -34,7 +34,7 @@ def get_kneedle_point(group):
     return t[knee_idx]
 
 def get_mean_convergence_curve(df_algo_cat):
-    """合成某算法在特定类别图上的平均曲线"""
+    """Build an algorithm's average convergence curve for a graph category."""
     df_clean = df_algo_cat.groupby(['Dataset', 'Time_Elapsed'])['Best_Value'].max().reset_index()
     pivot_df = df_clean.pivot(index='Time_Elapsed', columns='Dataset', values='Best_Value')
     pivot_df = pivot_df.ffill().fillna(0)
@@ -48,24 +48,24 @@ def get_mean_convergence_curve(df_algo_cat):
 
 
 def analyze_convergence_kneedle(convergence_file, output_file):
-    # 读取收敛数据
+    # Read convergence data.
     df_conv = pd.read_csv(convergence_file)
     
-    # 1. 负数全部归 0
+    # 1. Clamp all negative values to zero.
     df_conv.loc[df_conv['Best_Value'] < 0, 'Best_Value'] = 0
     
-    # 2. 提取类别 Category (前两项一致的视为同一类图，例如 dag101_MEDIUM_0 -> dag101_MEDIUM)
+    # 2. Extract the category from the first two components, e.g., dag101_MEDIUM_0 -> dag101_MEDIUM.
     df_conv['Category'] = df_conv['Dataset'].apply(lambda x: "_".join(str(x).split("_")[:2]))
     
-    # 3. 计算各算法在各类图上的最佳结果与平均拐点
+    # 3. Compute the best scores and average-curve knee points for each algorithm and graph category.
     results = []
     for (algo, cat), group in df_conv.groupby(['Algorithm', 'Category']):
-        # 该类别下，提取每个具体 Dataset (比如 _0, _1, _2) 的最高得分
+        # Extract the highest score for each dataset in this category (e.g., _0, _1, _2).
         dataset_max_vals = group.groupby('Dataset')['Best_Value'].max()
-        # 对这几个最高得分取平均
+        # Average these highest scores.
         avg_best_val = dataset_max_vals.mean()
         
-        # 合成该类别下图的平均收敛曲线，并计算拐点
+        # Build the category's average convergence curve and find its knee point.
         mean_curve = get_mean_convergence_curve(group)
         knee_time = get_kneedle_point(mean_curve)
         
@@ -79,29 +79,29 @@ def analyze_convergence_kneedle(convergence_file, output_file):
         
     category_summary = pd.DataFrame(results)
     
-    # 4. 排序：按图的类别聚合，同类别下按得分降序，时间升序
+    # 4. Group by graph category, then sort by descending score and ascending time.
     category_summary = category_summary.sort_values(
         by=['Category', 'Avg_Best_Value', 'Avg_Time_to_Knee'], 
         ascending=[True, False, True]
     ).reset_index(drop=True)
     
-    # 5. 输出到指定的 CSV 文件
+    # 5. Write to the specified CSV file.
     category_summary.to_csv(output_file, index=False)
-    print(f"✅ 统计完成！结果已成功保存至文件：{output_file}")
+    print(f"✅ Statistics complete! Results saved to: {output_file}")
     
     return category_summary
 
 
-# ========= 运行 =========
+# ========= Execution =========
 if __name__ == "__main__":
-    # 配置输入与输出文件路径
+    # Configure input and output file paths.
     input_csv = 'convergence_summary.csv'
     output_csv = 'category_convergence_stats.csv'
     
     category_df = analyze_convergence_kneedle(input_csv, output_csv)
     
-    # 打印前几行作为预览
+    # Print the first few rows as a preview.
     pd.set_option('display.max_columns', None)
     pd.set_option('display.width', 1000)
-    print("\n输出数据预览 (Top 5)：")
+    print("\nOutput preview (Top 5):")
     print(category_df.head())

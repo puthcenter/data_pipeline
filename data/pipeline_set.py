@@ -11,7 +11,7 @@ from dataclasses import dataclass, asdict
 from itertools import combinations
 
 # ==========================================
-# 全局处理配置 (ETL Configuration)
+# Global ETL configuration
 # ==========================================
 
 DATASET_VERSIONS = 3  
@@ -20,16 +20,16 @@ DATA_OUTPUT_DIR = "output"
 
 @dataclass
 class TopologyParams:
-    """拓扑标准化参数：确保 50w 节点规模下的逻辑自洽"""
+    """Topology normalization parameters for consistency at a scale of 500,000 nodes."""
     target_capacity: int = 500000   
     sample_size: int = 25000        
     max_hierarchy: int = 40         
     
-    # 形状因子
+    # Shape factors
     cost_width_factor: int = 300  
     attenuation_rate: float = 0.10       
     
-    # 连通性参数
+    # Connectivity parameters
     link_noise_prob: float = 0.03   
     density_target: int = 6         
     seed: int = None         
@@ -58,7 +58,7 @@ SCENARIO_PROFILES = {
     }
 }
 
-# 敏感度分析实验设计
+# Sensitivity analysis experiment design
 EXPERIMENTS = [
     ("depth", "low", 101, {"max_hierarchy": 15}, {}),
     ("depth", "medium", 102, {"max_hierarchy": 40}, {}),
@@ -88,7 +88,7 @@ def setup_logger():
     )
 
 # ==========================================
-# 核心模块: 拓扑流形生成 (Manifold Generation)
+# Core module: topology manifold generation
 # ==========================================
 
 def _repair_connectivity(G):
@@ -110,7 +110,7 @@ def build_reference_manifold(cfg: TopologyParams):
         np.random.seed(cfg.seed)
 
     G = nx.DiGraph()
-    # 动态适应：确保信道宽度不低于密度目标，防止密度参数失效
+    # Adapt the channel width to be at least the target density so the density parameter remains effective.
     base_width = int(cfg.cost_width_factor / cfg.max_hierarchy)
     channel_width = max(cfg.density_target + 2, base_width) 
     
@@ -146,7 +146,7 @@ def build_reference_manifold(cfg: TopologyParams):
                 next_channels[cid].append(nid)
                 current_node_id += 1
                 
-                # 连通性注入 (严格遵循信道隔离逻辑)
+                # Add connectivity while strictly preserving channel isolation.
                 parents = set()
                 target_d = max(1, int(random.gauss(cfg.density_target, cfg.density_target*0.1)))
                 target_d = min(target_d, len(prev_channels[cid]) + 2)
@@ -176,11 +176,11 @@ def build_reference_manifold(cfg: TopologyParams):
     return G
 
 # ==========================================
-# 核心模块: 三阶段价值与外部性生成 (Economics)
+# Core module: three-stage value and externality generation (economics)
 # ==========================================
 
 def enrich_node_attributes(G, config):
-    """还原完全版三阶段 ROI 赋值逻辑"""
+    """Implement the complete three-stage ROI assignment logic."""
     result_nodes = [n for n in G.nodes() if G.nodes[n].get('is_result', False)]
     if not result_nodes: return G, [], {}, 0.0
 
@@ -198,7 +198,7 @@ def enrich_node_attributes(G, config):
 
     total_physical_cost = sum(G.nodes[n]['incoming_cost'] for n in G.nodes())
     
-    # 闭包成本计算 (由于信道隔离，此处计算量受控)
+    # Compute closure costs; channel isolation keeps the computational workload manageable.
     closure_costs = {}
     for r in result_nodes:
         anc = nx.ancestors(G, r)
@@ -237,7 +237,7 @@ def compute_distribution_threshold(data):
     return (c1 + c2) / 2
 
 def extract_constraint_relationships(G, result_nodes, closure_costs, total_cost, config):
-    """还原完全版三重外部性冲突逻辑"""
+    """Implement the complete three-component externality conflict model."""
     constraints_log = []
     costs = list(closure_costs.values())
     if not costs: return []
@@ -251,7 +251,7 @@ def extract_constraint_relationships(G, result_nodes, closure_costs, total_cost,
     clique_budget = total_budget * config["STRUCTURAL_RISK_SHARE"]
     noise_budget = total_budget - clique_budget
     
-    # 1. 跨阶层冲突 (API 节点对浅层节点的压制/冲突)
+    # 1. Cross-layer conflicts (API nodes suppress or conflict with shallow-layer nodes)
     api_nodes = [n for n in result_nodes if G.nodes[n]['is_api']]
     shallow_threshold = np.percentile([G.nodes[x]['layer'] for x in result_nodes], 30) if result_nodes else 0
     shallow_nodes = [n for n in result_nodes if not G.nodes[n]['is_api'] and G.nodes[n]['layer'] <= shallow_threshold]
@@ -265,7 +265,7 @@ def extract_constraint_relationships(G, result_nodes, closure_costs, total_cost,
                                     {'source': s_node, 'target': a_node, 'penalty': round(penalty, 4)}])
             noise_budget -= penalty 
 
-    # 2. 结构化同级冲突 (Cliques)
+    # 2. Structured same-layer conflicts (cliques)
     curr_clique_spent = 0
     pool = list(result_nodes)
     random.shuffle(pool)
@@ -279,7 +279,7 @@ def extract_constraint_relationships(G, result_nodes, closure_costs, total_cost,
                                     {'source': v, 'target': u, 'penalty': round(penalty, 4)}])
             curr_clique_spent += penalty
 
-    # 3. 随机噪音风险
+    # 3. Random noise risk
     curr_noise_spent = 0
     unit_penalty = (np.mean([G.nodes[n]['value'] for n in light_nodes]) if light_nodes else 10.0) * config["NOISE_INTENSITY"]
     iters = 0
@@ -295,7 +295,7 @@ def extract_constraint_relationships(G, result_nodes, closure_costs, total_cost,
     return constraints_log
 
 # ==========================================
-# 序列化与主流程 (Serialization & Execution)
+# Serialization and main execution flow
 # ==========================================
 
 def serialize_dataset(G, constraints_data, folder_path, metadata):
@@ -323,7 +323,7 @@ def serialize_dataset(G, constraints_data, folder_path, metadata):
         for item in constraints_data:
             w.writerow([item['source'], item['target'], f"{item['penalty']:.4f}"])
             
-    # meta.json (还原详细版参数记录)
+    # meta.json: record the full parameter details.
     with open(os.path.join(folder_path, "meta.json"), 'w', encoding='utf-8') as f:
         json.dump(metadata, f, indent=4)
 
@@ -339,7 +339,7 @@ def run_sensitivity_pipeline():
         for v_idx in range(DATASET_VERSIONS):
             logging.info(f"Processing: {dim}-{level} | Version: {v_idx}")
             
-            # 1. 参数准备
+            # 1. Prepare parameters.
             tp = TopologyParams(seed=hash(f"{file_id}_{v_idx}") % (2**32))
             for k, v in topo_over.items(): setattr(tp, k, v)
                 
@@ -347,12 +347,12 @@ def run_sensitivity_pipeline():
             proc_config.update(eco_over)
 
             try:
-                # 2. 生成流程 (拓扑 -> 价值 -> 外部性)
+                # 2. Generate topology, then values, then externalities.
                 G = build_reference_manifold(tp)
                 G, res_nodes, clos_costs, total_cost = enrich_node_attributes(G, proc_config)
                 constraints = extract_constraint_relationships(G, res_nodes, clos_costs, total_cost, proc_config)
                 
-                # 3. 还原完整版 Meta 参数
+                # 3. Populate the complete metadata parameters.
                 final_meta = {
                     "etl_info": {
                         "source_id": file_id,
@@ -371,7 +371,7 @@ def run_sensitivity_pipeline():
                     }
                 }
                 
-                # 4. 输出存储
+                # 4. Save outputs.
                 folder_name = f"dag{file_id}_{profile_name}_{v_idx}"
                 serialize_dataset(G, constraints, os.path.join(DATA_OUTPUT_DIR, folder_name), final_meta)
                 

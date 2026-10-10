@@ -9,14 +9,14 @@ import argparse
 from typing import List, Dict, Set, Tuple, Optional
 
 # ==============================================================================
-# --- 0. 改进的记录器类 (Event-Driven & Time-Driven) ---
+# --- 0. Enhanced tracker class (event-driven & time-driven) ---
 # ==============================================================================
 class ConvergenceTracker:
     def __init__(self, algorithm_name, dataset_name, save_path="convergence.csv", log_interval=50.0):
         self.algorithm_name = algorithm_name
         self.dataset_name = dataset_name
         self.save_path = save_path
-        self.log_interval = log_interval  # 监控间隔
+        self.log_interval = log_interval  # Monitoring interval
         
         self.start_time = time.time()
         self.last_log_time = self.start_time
@@ -24,37 +24,37 @@ class ConvergenceTracker:
         self.history = []
         self.current_best_value = -float('inf')
         
-        # 初始记录
+        # Initial record
         self._log(0.0, -float('inf'))
 
     def update(self, value, round_num=None):
         """
         [Event-Driven]
-        仅当发现更好的解时调用。
-        返回 True 表示发现了新最优解，False 表示未发现。
+        Call only when a better solution is found.
+        Return True if a new best solution is found, otherwise False.
         """
         if value > self.current_best_value + 1e-9:
             self.current_best_value = value
             elapsed = time.time() - self.start_time
             
-            # 记录数据 (带轮数)
+            # Record data, including the iteration number.
             self._log(elapsed, value, round_num)
             
-            # 构建输出信息
+            # Build the output message.
             msg = f"      [Monitor] New Best: {value:,.2f} @ {elapsed:.2f}s"
             if round_num is not None:
                 msg += f" | Round: {round_num}"
             print(msg)
             
             self.save_to_csv()
-            self.last_log_time = time.time() # 重置定时器
+            self.last_log_time = time.time() # Reset the timer.
             return True
         return False
 
     def tick(self):
         """
         [Time-Driven]
-        周期性记录 (Fill-forward)，不打印 New Best，只记录数据。
+        Periodically record data using forward fill, without printing a New Best message.
         """
         now = time.time()
         if now - self.last_log_time >= self.log_interval:
@@ -91,7 +91,7 @@ def _safe_float(x):
     except: return 0.0
 
 # ==============================================================================
-# --- 1. 数据加载与结果保存 ---
+# --- 1. Data loading and result saving ---
 # ==============================================================================
 def load_all_data(folder: str):
     node_df = pd.read_csv(os.path.join(folder, "nodes.csv"))
@@ -146,7 +146,7 @@ def save_result(output_dir, selected_nodes, selected_edges, score, duration, res
     with open(os.path.join(output_dir, 'result_nodes_count.txt'), 'w') as f: f.write(str(len(res_nodes)))
 
 # ==============================================================================
-# --- 2. 增量状态管理器 (Incremental State) ---
+# --- 2. Incremental state manager ---
 # ==============================================================================
 class IncrementalScoreState:
     def __init__(self, G, externality_dict, ancestor_cache):
@@ -222,16 +222,16 @@ class IncrementalScoreState:
         return {n for n, c in self.ref_counts.items() if c > 0}
 
 # ==============================================================================
-# --- 3. 启发式计算: 单体净价值 (Ablation: Single Net Value) ---
+# --- 3. Heuristic computation: individual net value (ablation) ---
 # ==============================================================================
 def calculate_single_net_values(all_res, ancestor_cache, node_values, node_costs, externality_dict):
     """
-    消融实验计算逻辑：
+    Ablation computation:
     Single Net Value = Node Value - Parent Closure Cost - (Total Externality / 2)
-    注意：这里 Parent Closure Cost 是全额扣除（假设该节点单独存在），不考虑共享。
+    Deduct the full parent-closure cost, assuming the node is selected alone with no cost sharing.
     """
-    # 1. 预计算每个节点的外部性负担（总冲突值的一半）
-    # 如果节点 u 和 v 冲突，penalty 为 P。那么 u 分摊 P/2, v 分摊 P/2。
+    # 1. Precompute each node's externality burden (half its total conflict penalty).
+    # For conflicting nodes u and v with penalty P, allocate P/2 to each node.
     ext_burden = defaultdict(float)
     if externality_dict:
         for (src, tgt), penalty in externality_dict.items():
@@ -241,17 +241,17 @@ def calculate_single_net_values(all_res, ancestor_cache, node_values, node_costs
 
     net_values = {}
     for node in all_res:
-        # A. 基础价值
+        # A. Base value
         base_val = node_values.get(node, 0.0)
         
-        # B. 父闭包全额成本
-        # 遍历该节点的所有祖先（包括自身），累加其成本
+        # B. Full parent-closure cost
+        # Sum the costs of all ancestors, including the node itself.
         closure_cost = sum(node_costs.get(anc, 0.0) for anc in ancestor_cache[node])
         
-        # C. 外部性惩罚的一半
+        # C. Half the externality penalty
         ext_penalty = ext_burden[node]
         
-        # 计算净值
+        # Compute the net value.
         net_values[node] = base_val - closure_cost - ext_penalty
         
     return net_values
@@ -266,7 +266,7 @@ def perturb_solution(base_solution: Set[int], all_candidates: List[int], perturb
     return new_set
 
 # ==============================================================================
-# --- 4. 爬山法逻辑 ---
+# --- 4. Hill-climbing logic ---
 # ==============================================================================
 def _greedy_descent_pass_incremental(
     state: IncrementalScoreState, 
@@ -275,7 +275,7 @@ def _greedy_descent_pass_incremental(
     deadline: float
 ):
     """
-    单次爬山下降过程。
+    Perform a single hill-climbing pass.
     """
     improvement_found = True
     candidates = list(all_result_nodes)
@@ -289,7 +289,7 @@ def _greedy_descent_pass_incremental(
         
         improvement_found = False
         for i, node in enumerate(candidates):
-            # 心跳检查：每 100 个节点检查一次是否需要记录 Time-Driven log
+            # Every 100 nodes, check whether a time-driven log entry is due.
             if i % 100 == 0:
                 tracker.tick()
                 if time.time() > deadline: break
@@ -314,7 +314,7 @@ def _greedy_descent_pass_incremental(
     return local_best_score, steps
 
 # ==============================================================================
-# --- 5. 统一求解接口 (Ablation Logic) ---
+# --- 5. Unified solver interface (ablation logic) ---
 # ==============================================================================
 def run_solver(
     G: nx.DiGraph, 
@@ -328,7 +328,7 @@ def run_solver(
 ):
     os.makedirs(result_dir, exist_ok=True)
     
-    # 1. 初始化 Tracker
+    # 1. Initialize the tracker.
     tracker = ConvergenceTracker(
         algorithm_name, 
         dataset_name, 
@@ -344,22 +344,22 @@ def run_solver(
         tracker.finalize(max_runtime)
         return set(), [], 0.0, set()
     
-    # 预计算
+    # Precomputation
     node_values = {n: G.nodes[n]['value'] for n in all_res}
     ancestor_cache = {r: set(nx.ancestors(G, r)) | {r} for r in all_res}
     
-    # === 修改点 A: 计算单体净价值而非 Shapley ===
+    # === A: Compute individual net values instead of Shapley estimates ===
     print(f"    [{algorithm_name.upper()}] Computing Single Net Values (Ablation)...")
     heuristic_values = calculate_single_net_values(
         all_res, ancestor_cache, node_values, node_costs, externality_dict
     )
     
-    # 排序候选者
+    # Sort candidates.
     sorted_candidates = sorted(all_res, key=lambda n: heuristic_values.get(n, -float('inf')), reverse=True)
     n_candidates = len(sorted_candidates)
     
-    # === 修改点 B: 直接构建分层比例，不单独搜索正值部分 ===
-    # 仅使用 10% 到 50% 的分位点
+    # === B: Construct stratified proportions without a separate search over positive values ===
+    # Use only proportions from 10% to 50%.
     ratios_to_try = [i / 100.0 for i in range(10, 51, 5)]
             
     # Init Variables
@@ -370,7 +370,7 @@ def run_solver(
     ratio_idx = 0
     restart_count = 0
     
-    # [逻辑控制变量]
+    # Search-control variables
     perturbation_mode = False 
     stop_search = False       
 
@@ -384,23 +384,23 @@ def run_solver(
         is_new_best = False
         strategy = ""
         
-        # A. 策略选择
+        # A. Select a strategy.
         if ratio_idx < len(ratios_to_try):
-            # --- 阶段一：分层比例搜索 ---
+            # --- Phase 1: Stratified proportion search ---
             curr_ratio = ratios_to_try[ratio_idx]
             count = int(n_candidates * curr_ratio)
-            # 取 Top K 个节点作为初始解
+            # Use the top K nodes as the initial solution.
             init_set = set(sorted_candidates[:count])
             strategy = f"Stratified-{curr_ratio:.2f}"
             ratio_idx += 1
             perturbation_mode = False 
         else:
-            # --- 阶段二：微扰搜索 (Iterative Perturbation) ---
+            # --- Phase 2: Iterative perturbation search ---
             perturbation_mode = True
             strategy = "Perturb-Best"
             init_set = perturb_solution(best_global_solution, all_res, perturb_strength=0.05)
             
-        # B. 初始化
+        # B. Initialize.
         state.initialize(init_set)
         
         # [Check 1] 
@@ -411,7 +411,7 @@ def run_solver(
             is_new_best = True 
             improved_at_start = True
             
-        # C. 爬山
+        # C. Hill climbing
         local_opt, steps = _greedy_descent_pass_incremental(
             state, all_res, tracker, deadline
         )
@@ -424,7 +424,7 @@ def run_solver(
             is_new_best = True 
             improved_at_hc = True
         
-        # D. 停止逻辑
+        # D. Stopping logic
         if perturbation_mode:
             if not (improved_at_start or improved_at_hc):
                 print(f"    [Stop] No improvement in perturbation round. Convergence reached.")
@@ -432,7 +432,7 @@ def run_solver(
 
         tracker.tick()
         
-        # 打印日志
+        # Print logs.
         if "Stratified" in strategy or is_new_best or strategy == "Perturb-Best":
             log_msg = f"    [Restart {restart_count}] {strategy:<20} | Best: {best_global_score:,.0f} | Steps: {steps}"
             if perturbation_mode and is_new_best:
@@ -441,7 +441,7 @@ def run_solver(
 
     tracker.finalize(max_runtime)
     
-    # 结果构建
+    # Build the result.
     state.initialize(best_global_solution)
     final_full_nodes = state.get_full_closure_nodes()
     
@@ -456,7 +456,7 @@ def run_solver(
     return final_full_nodes, final_selected_edges, best_global_score, best_global_solution
 
 # ==============================================================================
-# --- 6. 执行入口 ---
+# --- 6. Entry point ---
 # ==============================================================================
 def run_experiment(root_dir, algo_name, max_runtime):
     if not os.path.exists(root_dir): return
@@ -474,7 +474,7 @@ def run_experiment(root_dir, algo_name, max_runtime):
             result_dir = os.path.join(path, f"{algo_name}_result")
             start_real = time.time()
             
-            # === 调用统一接口 ===
+            # === Call the unified interface ===
             sn, se, score, res_nodes = run_solver(
                 G, nc, ed, ext,
                 dataset_name=folder, 
@@ -493,7 +493,7 @@ def run_experiment(root_dir, algo_name, max_runtime):
 
 if __name__ == "__main__":
     MAX_RUNTIME = 1000.0
-    # 设置算法名以体现消融实验
+    # Set the algorithm name to identify the ablation variant.
     ALGO_NAME = "nghc"
     
     parser = argparse.ArgumentParser()

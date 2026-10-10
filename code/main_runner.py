@@ -9,7 +9,7 @@ import time
 import itertools
 import re
 
-# --- 配置 ---
+# --- Configuration ---
 
 METHODS = {
     "greedy": "greedy.py",
@@ -20,17 +20,17 @@ METHODS = {
     #"sa_full": "sa_full.py",
     "qp": "qp.py",
     "qpbo": "qpbo.py",
-    # [新增] 加入 ILP 作为精确解方法
+    # Include ILP as an exact solution method.
     #"ilp": "ilp.py"
 }
 
-# 定义难度级别，用于过滤和排序
+# Define difficulty levels for filtering and sorting.
 DIFFICULTY_ORDER = ["EASY", "MEDIUM", "HARD", "medium"]
 
 CODE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.abspath(os.path.join(CODE_DIR, "..", "data", "output"))
 
-# --- 改进的Logger类 ---
+# --- Enhanced logger class ---
 
 class Logger(object):
     def __init__(self, filename):
@@ -56,7 +56,7 @@ class Logger(object):
     def close(self):
         self.log.close()
 
-# --- 脚本执行函数 ---
+# --- Script execution functions ---
 
 def run_method(name, script_name):
     print(f"\n" + "="*50)
@@ -68,14 +68,14 @@ def run_method(name, script_name):
     script_path = os.path.join(CODE_DIR, script_name)
     
     if not os.path.exists(script_path):
-        error_msg = f"❌ 文件不存在: {script_path}"
+        error_msg = f"❌ File not found: {script_path}"
         print(error_msg)
         return name, False, error_msg
     
     try:
-        # 注意：这里假设子脚本会自己去遍历 output 文件夹。
-        # 如果子脚本不区分 dag_0 和 dag_EASY_0，它们可能会全部跑一遍。
-        # main_runner 主要控制的是“统计结果”的筛选。
+        # Each child script is expected to traverse the output directory itself.
+        # Scripts that do not distinguish dag_0 from dag_EASY_0 may process both.
+        # main_runner primarily controls which results are included in the statistics.
         process = subprocess.Popen(
             [sys.executable, "-u", script_path],
             cwd=CODE_DIR,
@@ -119,7 +119,7 @@ def run_all_methods():
         sys.stdout.flush()
     return results
 
-# --- 辅助函数 ---
+# --- Helper functions ---
 
 def calculate_jaccard(set_a, set_b):
     if not set_a and not set_b: return 0.0
@@ -130,27 +130,27 @@ def calculate_jaccard(set_a, set_b):
 
 def get_difficulty_rank(category_name):
     """
-    辅助排序：将 dag_EASY 映射为 0, dag_MEDIUM 映射为 1...
-    如果找不到关键字，放在最后。
+    Sorting helper: map dag_EASY to 0, dag_MEDIUM to 1, and so on.
+    Place names without a matching keyword last.
     """
     for idx, level in enumerate(DIFFICULTY_ORDER):
         if level in category_name:
             return idx
     return 999
 
-# --- 读取结果 ---
+# --- Read results ---
 
 def read_results():
     """
-    读取 output 文件夹结果。
-    [新增功能]: 自动跳过不包含 EASY/MEDIUM/HARD/EXTREME 的基础图文件夹。
+    Read results from the output directory.
+    Skip base-graph folders without EASY/MEDIUM/HARD/EXTREME in their names.
     """
     final_results = defaultdict(lambda: defaultdict(list))
     convergence_data_frames = [] 
     overlap_stats = defaultdict(lambda: defaultdict(list))
 
     if not os.path.exists(DATA_DIR):
-        print(f"❌ 数据目录不存在: {DATA_DIR}")
+        print(f"❌ Data directory not found: {DATA_DIR}")
         return final_results, pd.DataFrame(), {}
 
     print("🔍 Scanning output directories...")
@@ -165,13 +165,13 @@ def read_results():
         if not os.path.isdir(folder_path):
             continue
         
-        # --- [关键修改] 过滤逻辑 ---
-        # 检查文件夹名中是否包含难度关键词。
-        # 假设命名格式如: dag_EASY_0, graph_HARD_1
+        # --- Filtering logic ---
+        # Check whether the folder name contains a difficulty keyword.
+        # Expected names include dag_EASY_0 and graph_HARD_1.
         is_benchmark_task = False
         found_level = None
         for level in DIFFICULTY_ORDER:
-            # 检查 level 是否作为独立的词存在 (避免比如 "EASYGOING" 被误判，虽然这里概率不大)
+            # Match level as a separate component to avoid false positives such as "EASYGOING".
             if f"_{level}_" in folder: 
                 is_benchmark_task = True
                 found_level = level
@@ -184,19 +184,19 @@ def read_results():
             
         processed_count += 1
 
-        # 解析 Category (Group Key)
-        # 例如: folder = dag_EASY_0 -> parts = ['dag', 'EASY', '0']
-        # 我们希望 Group Key 是 'dag_EASY'，这样所有同难度的图会聚合在一起
+        # Parse the category (group key).
+        # Example: folder = dag_EASY_0 -> parts = ['dag', 'EASY', '0'].
+        # Use 'dag_EASY' as the group key to aggregate graphs with the same difficulty.
         parts = folder.split("_")
         
-        # 简单的取前缀逻辑：去除最后的 ID 数字
+        # Extract the prefix by removing the trailing numeric ID.
         try:
-            int(parts[-1]) # 尝试把最后一部分转数字
+            int(parts[-1]) # Try to parse the last component as a number.
             group_key = "_".join(parts[:-1]) # dag_EASY
         except ValueError:
-            group_key = folder # 无法解析，保留原名
+            group_key = folder # Keep the original name if parsing fails.
 
-        # --- 以下逻辑保持不变 ---
+        # --- The following logic is unchanged ---
 
         current_dataset_nodes = {} 
 
@@ -219,7 +219,7 @@ def read_results():
                     pass
             
             # 2. Convergence
-            # [关键修改] 如果是 ILP，则跳过读取收敛数据，因为我们只需要用它做 Baseline
+            # Skip ILP convergence data; ILP is only used as a baseline.
             if method == "ilp":
                 pass # Do nothing here, skip reading convergence.csv
             else:
@@ -238,7 +238,7 @@ def read_results():
             nodes_file = os.path.join(method_path, "result_nodes.csv")
             if os.path.exists(nodes_file):
                 try:
-                    # 健壮读取
+                    # Read defensively.
                     df_temp = pd.read_csv(nodes_file, header=None, nrows=5)
                     is_header = False
                     if not df_temp.empty:
@@ -259,7 +259,7 @@ def read_results():
                 except Exception:
                     pass
 
-        # 计算 Jaccard
+        # Compute Jaccard similarity.
         if len(current_dataset_nodes) > 1:
             method_names = list(METHODS.keys())
             for m1, m2 in itertools.combinations_with_replacement(method_names, 2):
@@ -281,8 +281,8 @@ def read_results():
 def summarize_results(results):
     summary = []
     
-    # --- [关键修改] 排序逻辑 ---
-    # 我们希望按照 EASY -> MEDIUM -> HARD -> EXTREME 的顺序输出 CSV
+    # --- Sorting logic ---
+    # Order CSV rows by EASY -> MEDIUM -> HARD -> EXTREME.
     sorted_keys = sorted(results.keys(), key=lambda x: (get_difficulty_rank(x), x))
 
     for group_key in sorted_keys:
@@ -310,7 +310,7 @@ def summarize_overlaps(overlap_stats):
     overlap_summaries = []
     method_list = list(METHODS.keys())
     
-    # 同样应用排序逻辑
+    # Apply the same sorting logic.
     sorted_keys = sorted(overlap_stats.keys(), key=lambda x: (get_difficulty_rank(x), x))
     
     for category in sorted_keys:
@@ -342,61 +342,61 @@ def summarize_overlaps(overlap_stats):
                     
     return pd.DataFrame(overlap_summaries)
 
-# --- 主函数 ---
+# --- Main function ---
 
 def main():
     print(f"--- Main Runner Started ---")
     sys.stdout.flush()
     
-    # 1. 运行算法
+    # 1. Run algorithms.
     #run_all_methods()
     
     print("\n" + "="*50)
-    print("📊 正在读取和汇总 Benchmark 结果...")
-    print("   (只处理 EASY, MEDIUM, HARD, EXTREME 版本)")
+    print("📊 Reading and aggregating benchmark results...")
+    print("   (EASY, MEDIUM, HARD, EXTREME versions only)")
     print("="*50)
     sys.stdout.flush()
     
-    # 2. 读取
+    # 2. Read results.
     final_results_dict, convergence_df, overlap_stats = read_results()
     
     # 3. Performance Summary
     summary_df = summarize_results(final_results_dict)
-    print("\n📊 性能汇总表 (按难度排序):")
+    print("\n📊 Performance summary (sorted by difficulty):")
     if summary_df.empty:
-        print("  (汇总表为空 - 未找到符合条件的 benchmark 结果)")
+        print("  (Empty summary - no matching benchmark results found)")
     else:
-        # 只打印前几行预览
+        # Print only the first few rows as a preview.
         print(summary_df.head(20).to_string())
     
     summary_path = os.path.join(CODE_DIR, "summary.csv")
     try:
         summary_df.to_csv(summary_path, index=False)
-        print(f"\n✅ 性能汇总 CSV 已保存到: {summary_path}")
+        print(f"\n✅ Performance summary CSV saved to: {summary_path}")
     except Exception as e:
-        print(f"\n❌ 保存 CSV 失败: {e}")
+        print(f"\n❌ Failed to save CSV: {e}")
 
     # 4. Convergence Summary
     conv_path = os.path.join(CODE_DIR, "convergence_summary.csv")
     if not convergence_df.empty:
         try:
             convergence_df.to_csv(conv_path, index=False)
-            print(f"✅ 收敛历史总表 CSV 已保存到: {conv_path} (Rows: {len(convergence_df)})")
+            print(f"✅ Convergence history CSV saved to: {conv_path} (Rows: {len(convergence_df)})")
         except Exception as e:
-            print(f"❌ 保存收敛表失败: {e}")
+            print(f"❌ Failed to save convergence CSV: {e}")
     else:
-        print("⚠️ 未找到任何收敛数据 (忽略 ILP)。")
+        print("⚠️ No convergence data found (ILP excluded).")
 
     # 5. Overlap Summary
-    print("\n🔗 节点重合度分析:")
+    print("\n🔗 Node overlap analysis:")
     overlap_df = summarize_overlaps(overlap_stats)
     overlap_path = os.path.join(CODE_DIR, "overlap_summary.csv")
     if not overlap_df.empty:
         try:
             overlap_df.to_csv(overlap_path, index=False)
-            print(f"✅ 节点重合度汇总 CSV 已保存到: {overlap_path}")
+            print(f"✅ Node overlap summary CSV saved to: {overlap_path}")
         except Exception as e:
-            print(f"❌ 保存重合度表失败: {e}")
+            print(f"❌ Failed to save overlap CSV: {e}")
 
     sys.stdout.flush()
 
@@ -411,13 +411,13 @@ if __name__ == "__main__":
     try:
         main()
         
-        # 绘图
+        # Plot results.
         plot_script_path = os.path.join(CODE_DIR, "plot_summary.py")
         if os.path.exists(plot_script_path):
             print("\n" + "="*50)
-            print("📊 正在调用绘图脚本...")
+            print("📊 Running the plotting script...")
             subprocess.run([sys.executable, plot_script_path], cwd=CODE_DIR)
-            print("✅ 绘图脚本执行完毕")
+            print("✅ Plotting script completed")
         
     except Exception as e:
         print(f"\n❌ Fatal Error: {e}")

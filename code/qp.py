@@ -10,11 +10,11 @@ from scipy.sparse import csr_matrix, vstack, identity
 import osqp
 from typing import Dict, List, Set, Tuple
 
-# 新增并发库
+# Multiprocessing support
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # ==============================================================================
-# --- 0. 改进的记录器类 (Event-Driven & Time-Driven) ---
+# --- 0. Enhanced tracker class (event-driven & time-driven) ---
 # ==============================================================================
 class ConvergenceTracker:
     def __init__(self, algorithm_name, dataset_name, save_path="convergence.csv", log_interval=50.0):
@@ -37,7 +37,7 @@ class ConvergenceTracker:
             elapsed = time.time() - self.start_time
             self._log(elapsed, value, round_num)
             
-            # 【改动】：添加数据集名称前缀和 flush
+            # Prefix output with the dataset name and flush immediately.
             msg = f"[{self.dataset_name}] [Monitor] New Best: {value:,.2f} @ {elapsed:.2f}s"
             if round_num is not None:
                 msg += f" | Round: {round_num}"
@@ -80,7 +80,7 @@ class ConvergenceTracker:
             pass
 
 # ==============================================================================
-# 1. 数据加载与保存 (保持原逻辑不变)
+# 1. Data loading and saving (unchanged)
 # ==============================================================================
 def load_graph_data(folder):
     node_df = pd.read_csv(os.path.join(folder, "nodes.csv"))
@@ -127,7 +127,7 @@ def save_result(output_dir, selected_nodes, selected_edges, score, duration, res
     with open(os.path.join(output_dir, 'result_nodes_count.txt'), 'w') as f: f.write(str(len(result_nodes)))
 
 # ==============================================================================
-# 2. 增量计算器 (保持原逻辑不变)
+# 2. Incremental evaluator (unchanged)
 # ==============================================================================
 class IncrementalScoreCalculator:
     def __init__(self, G, externality_dict, ancestor_cache):
@@ -179,7 +179,7 @@ class IncrementalScoreCalculator:
 # 3. QP Solver (Solver Weakened, Rounding Kept Smart)
 # ==============================================================================
 class QPGodMode:
-    # 【改动】：传入 dataset_name 以便打日志
+    # Pass dataset_name for logging.
     def __init__(self, G, externality_dict, node_id_to_idx, idx_to_node_id, dataset_name="Unknown"):
         self.G = G
         self.ext = externality_dict
@@ -302,7 +302,7 @@ class QPGodMode:
         return final_closure, best_score, best_set
 
 # ==============================================================================
-# 4. 执行逻辑
+# 4. Execution logic
 # ==============================================================================
 def run_solver(
     G: nx.DiGraph,
@@ -332,7 +332,7 @@ def run_solver(
         return set(), [], 0.0, set()
 
     ancestor_cache = {n: nx.ancestors(G, n) | {n} for n in result_nodes}
-    # 传入 dataset_name
+    # Pass dataset_name.
     solver = QPGodMode(G, externality_dict, node_id_to_idx, idx_to_node_id, dataset_name=dataset_name)
     
     remaining = deadline - time.time()
@@ -350,7 +350,7 @@ def run_solver(
     return closure, edges, score, selected
 
 
-# 【改动】：剥离单进程任务逻辑
+# Extract the single-process task logic.
 def process_single_folder(path: str, folder: str, algo_name: str, max_runtime: float):
     try:
         print(f"[{folder}] >>> Starting Processing (Algo: {algo_name})", flush=True)
@@ -380,7 +380,7 @@ def process_single_folder(path: str, folder: str, algo_name: str, max_runtime: f
         print(f"[{folder}] ERROR:\n{error_msg}", flush=True)
         return folder, False
 
-# 【改动】：实现多进程并发调度
+# Schedule tasks concurrently across processes.
 def run_experiment(root: str, algo_name: str, max_runtime: float, max_workers: int = None):
     if not os.path.exists(root):
         print(f"Error: Directory {root} does not exist.")
@@ -389,7 +389,7 @@ def run_experiment(root: str, algo_name: str, max_runtime: float, max_workers: i
     tasks = []
     for folder in os.listdir(root):
         path = os.path.join(root, folder)
-        # 根据实际情况过滤文件夹，这里默认所有非隐藏文件夹
+        # Process all non-hidden folders by default; adjust filtering as needed.
         if os.path.isdir(path) and not folder.startswith('.'):
             tasks.append((path, folder, algo_name, max_runtime))
 

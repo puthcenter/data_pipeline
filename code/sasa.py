@@ -10,11 +10,11 @@ import argparse
 from typing import List, Dict, Set, Tuple, Optional
 import sys
 
-# 新增并发库
+# Multiprocessing support
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # ==============================================================================
-# --- 0. 改进的记录器类 (ConvergenceTracker) ---
+# --- 0. Enhanced tracker class (ConvergenceTracker) ---
 # ==============================================================================
 class ConvergenceTracker:
     def __init__(self, algorithm_name, dataset_name, save_path="convergence.csv", log_interval=50.0):
@@ -38,7 +38,7 @@ class ConvergenceTracker:
             
             self._log(elapsed, value, round_num)
             
-            # 【改动】：添加数据集名称前缀
+            # Prefix output with the dataset name.
             msg = f"[{self.dataset_name}] [Monitor] New Best: {value:,.2f} @ {elapsed:.2f}s"
             if round_num is not None:
                 msg += f" | Round: {round_num}"
@@ -85,7 +85,7 @@ def _safe_float(x):
     except: return 0.0
 
 # ==============================================================================
-# --- 1. 数据加载与结果保存 (保持不变) ---
+# --- 1. Data loading and result saving (unchanged) ---
 # ==============================================================================
 def load_all_data(folder: str):
     node_df = pd.read_csv(os.path.join(folder, "nodes.csv"))
@@ -134,7 +134,7 @@ def save_result(output_dir, selected_nodes, selected_edges, score, duration, res
     with open(os.path.join(output_dir, 'result_nodes_count.txt'), 'w') as f: f.write(str(len(res_nodes)))
 
 # ==============================================================================
-# --- 2. 状态评估器 (IncrementalState) (保持不变) ---
+# --- 2. State evaluator (IncrementalState, unchanged) ---
 # ==============================================================================
 class IncrementalState:
     def __init__(self, G, initial_selection, ancestor_cache, externality_dict):
@@ -259,10 +259,10 @@ class IncrementalState:
         self.batch_flip(nodes)
 
 # ==============================================================================
-# --- 3. 智能移动管理器 (附加 dataset_name 日志) ---
+# --- 3. Smart move manager (with dataset_name in logs) ---
 # ==============================================================================
 class DynamicStructureManager:
-    # 【改动】：传入 dataset_name，并为日志添加前缀
+    # Pass dataset_name and prefix log messages with it.
     def __init__(self, G, result_nodes, externality_dict, ancestor_cache, dataset_name="Unknown"):
         self.G = G
         self.result_nodes = list(result_nodes)
@@ -369,7 +369,7 @@ class DynamicStructureManager:
         return followers
 
 # ==============================================================================
-# --- 4. 移动生成器 (支持策略来源追踪) ---
+# --- 4. Move generator (with strategy-source tracking) ---
 # ==============================================================================
 def get_smart_move(state: IncrementalState, manager: DynamicStructureManager, T: float, progress: float):
     r = random.random()
@@ -431,7 +431,7 @@ def get_smart_move(state: IncrementalState, manager: DynamicStructureManager, T:
     return [target], 'Random'
 
 # ==============================================================================
-# --- 5. 统一求解接口 ---
+# --- 5. Unified solver interface ---
 # ==============================================================================
 def run_solver(
     G: nx.DiGraph, 
@@ -465,14 +465,14 @@ def run_solver(
         ancs = nx.ancestors(G, r); ancs.add(r)
         ancestor_cache[r] = ancs
     
-    # 【改动】：传入 dataset_name
+    # Pass dataset_name.
     move_mgr = DynamicStructureManager(G, all_res, externality_dict, ancestor_cache, dataset_name=dataset_name)
     
     global_best_score = -float('inf')
     global_best_sol = set()
     restart_idx = 0
     
-    # 【改动】：添加日志前缀
+    # Add the log prefix.
     print(f"[{dataset_name}] [{algorithm_name.upper()}] Start... Budget: {max_runtime}s", flush=True)
 
     while time.time() < deadline:
@@ -556,7 +556,7 @@ def run_solver(
             global_best_score = local_best
             global_best_sol = best_sol_in_restart.copy()
         
-        # 【改动】：添加日志前缀
+        # Add the log prefix.
         print(f"[{dataset_name}] [Restart {restart_idx}] Best: {global_best_score:,.0f} | InitT: {T_init:.1f}", flush=True)
         print(f"[{dataset_name}]   -> Strategy Stats (Proposed / Accepted):", flush=True)
         for s, (prop, acc) in strategy_stats.items():
@@ -578,10 +578,10 @@ def run_solver(
     return final_nodes, final_edges, global_best_score, global_best_sol
 
 # ==============================================================================
-# --- 6. 执行入口 ---
+# --- 6. Entry point ---
 # ==============================================================================
 
-# 【改动】：抽离单进程任务逻辑
+# Extract the single-process task logic.
 def process_single_folder(path: str, folder: str, algo_name: str, max_runtime: float):
     try:
         print(f"[{folder}] >>> Starting Processing (Algo: {algo_name})", flush=True)
@@ -610,7 +610,7 @@ def process_single_folder(path: str, folder: str, algo_name: str, max_runtime: f
         print(f"[{folder}] ERROR:\n{error_msg}", flush=True)
         return folder, False
 
-# 【改动】：引入 ProcessPoolExecutor 实现多进程调度
+# Use ProcessPoolExecutor to schedule tasks across processes.
 def run_experiment(root_dir: str, algo_name: str, max_runtime: float, max_workers: int = None):
     if not os.path.exists(root_dir):
         print(f"Error: Directory {root_dir} does not exist.")
@@ -649,7 +649,7 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
     parser.add_argument('--root_dir', type=str, default="../data/output")
-    # 增加 workers 参数
+    # Add the workers argument.
     parser.add_argument('--workers', type=int, default=None, help="Number of parallel processes")
     args = parser.parse_args()
     
