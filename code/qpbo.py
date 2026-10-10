@@ -7,11 +7,11 @@ from collections import defaultdict
 import argparse
 from typing import Dict, List, Set, Tuple
 
-# 新增并发库
+# Multiprocessing support
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # ==============================================================================
-# --- 0. 记录器类 (已修改打印策略) ---
+# --- 0. Tracker class (updated logging strategy) ---
 # ==============================================================================
 class ConvergenceTracker:
     def __init__(self, algorithm_name, dataset_name, save_path="convergence.csv", log_interval=50.0):
@@ -35,7 +35,7 @@ class ConvergenceTracker:
             self._log(elapsed, value, round_num)
             
             if verbose:
-                # 【改动】：添加数据集名称前缀和 flush
+                # Prefix output with the dataset name and flush immediately.
                 msg = f"[{self.dataset_name}] [Monitor] New Best: {value:,.2f} @ {elapsed:.2f}s"
                 if round_num is not None:
                     msg += f" | Round: {round_num}"
@@ -78,7 +78,7 @@ class ConvergenceTracker:
             pass
 
 # ==============================================================================
-# 1. 数据加载与保存 (保持不变)
+# 1. Data loading and saving (unchanged)
 # ==============================================================================
 def load_graph_data(folder):
     node_df = pd.read_csv(os.path.join(folder, "nodes.csv"))
@@ -125,7 +125,7 @@ def save_result(output_dir, selected_nodes, selected_edges, score, duration, res
     with open(os.path.join(output_dir, 'result_nodes_count.txt'), 'w') as f: f.write(str(len(result_nodes)))
 
 # ==============================================================================
-# 2. 增量计算器 (保持不变)
+# 2. Incremental evaluator (unchanged)
 # ==============================================================================
 class IncrementalScoreCalculator:
     def __init__(self, G, externality_dict, ancestor_cache):
@@ -177,7 +177,7 @@ class IncrementalScoreCalculator:
 # 3. QPBO Solver (Roof Duality Implementation)
 # ==============================================================================
 class QPBOSolver:
-    # 【改动】：传入 dataset_name
+    # Pass dataset_name.
     def __init__(self, G, externality_dict, node_id_to_idx, idx_to_node_id, dataset_name="Unknown"):
         self.G_orig = G
         self.ext = externality_dict
@@ -321,7 +321,7 @@ class QPBOSolver:
         return final_closure, best_score, best_set
 
 # ==============================================================================
-# 4. 执行逻辑
+# 4. Execution logic
 # ==============================================================================
 def run_solver(
     G: nx.DiGraph,
@@ -352,7 +352,7 @@ def run_solver(
 
     ancestor_cache = {n: nx.ancestors(G, n) | {n} for n in result_nodes}
     
-    # 传入 dataset_name
+    # Pass dataset_name.
     solver = QPBOSolver(G, externality_dict, node_id_to_idx, idx_to_node_id, dataset_name=dataset_name)
     
     remaining = deadline - time.time()
@@ -372,7 +372,7 @@ def run_solver(
     return closure, edges, score, selected
 
 
-# 【改动】：剥离单进程任务逻辑
+# Extract the single-process task logic.
 def process_single_folder(path: str, folder: str, algo_name: str, max_runtime: float):
     try:
         print(f"[{folder}] >>> Starting Processing (Algo: {algo_name})", flush=True)
@@ -403,7 +403,7 @@ def process_single_folder(path: str, folder: str, algo_name: str, max_runtime: f
         return folder, False
 
 
-# 【改动】：实现多进程并发调度
+# Schedule tasks concurrently across processes.
 def run_experiment(root: str, algo_name: str, max_runtime: float, max_workers: int = None):
     if not os.path.exists(root):
         print(f"Error: Directory {root} does not exist.")

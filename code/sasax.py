@@ -10,11 +10,11 @@ from collections import defaultdict
 import argparse
 from typing import List, Dict, Set, Tuple
 
-# 新增并发库
+# Multiprocessing support
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # ==============================================================================
-# --- 0. 基础组件 (日志与数据加载) ---
+# --- 0. Core components (logging and data loading) ---
 # ==============================================================================
 class ConvergenceTracker:
     def __init__(self, algorithm_name, dataset_name, save_path="convergence.csv", log_interval=10.0):
@@ -115,7 +115,7 @@ def save_result(output_dir, selected_nodes, selected_edges, score, duration, res
     with open(os.path.join(output_dir, 'result_nodes_count.txt'), 'w') as f: f.write(str(len(res_nodes)))
 
 # ==============================================================================
-# --- 1. 增量状态管理 (Incremental State) ---
+# --- 1. Incremental state management ---
 # ==============================================================================
 class IncrementalState:
     def __init__(self, G, initial_selection, ancestor_cache, externality_dict):
@@ -198,7 +198,7 @@ class IncrementalState:
         self.batch_flip(nodes)
 
 # ==============================================================================
-# --- 2. 结构管理器 (Structure Manager) ---
+# --- 2. Structure manager ---
 # ==============================================================================
 class DynamicStructureManager:
     def __init__(self, G, result_nodes, externality_dict, ancestor_cache, dataset_name="Unknown"):
@@ -254,7 +254,7 @@ class DynamicStructureManager:
         return followers
 
 # ==============================================================================
-# --- 3. [消融实验专用] 移动生成器 ---
+# --- 3. Move generator for ablation experiments ---
 # ==============================================================================
 def get_ablation_move(state: IncrementalState, manager: DynamicStructureManager, progress: float, strategy: str):
     r = random.random()
@@ -312,7 +312,7 @@ def get_ablation_move(state: IncrementalState, manager: DynamicStructureManager,
     return [random.choice(manager.result_nodes)]
 
 # ==============================================================================
-# --- 4. 统一求解器 ---
+# --- 4. Unified solver ---
 # ==============================================================================
 def run_solver(
     G: nx.DiGraph, 
@@ -357,7 +357,7 @@ def run_solver(
         if tracker.update(curr_val, restart_idx):
             global_best_score = curr_val; global_best_sol = best_sol_in_restart.copy()
             
-        # [保留改动] 计算初始温度 T_init
+        # Compute the initial temperature T_init.
         T_init = 100.0
         deltas = []
         for _ in range(20):
@@ -375,7 +375,7 @@ def run_solver(
         alpha = 0.97
         
         stagnation = 0
-        # [保留改动] 退火迭代次数降低到 0.2，加速单次收敛
+        # Reduce the annealing iteration factor to 0.2 to speed up each convergence run.
         iter_max = max(10, int(len(all_res) * 0.2))
         
         while T > T_min and time.time() < deadline:
@@ -418,18 +418,18 @@ def run_solver(
     return final_nodes, final_edges, global_best_score, global_best_sol
 
 # ==============================================================================
-# --- 5. 执行入口 (按文件夹粒度多进程) ---
+# --- 5. Entry point (folder-level multiprocessing) ---
 # ==============================================================================
 
-# 独立出一个处理整个文件夹的任务函数 (策略在内部串行跑)
+# Process an entire folder in one task, running its strategies sequentially.
 def process_single_folder_ablation(path: str, folder: str, experiments: List[Tuple[str, str]], max_runtime: float):
     results_log = []
     try:
         print(f"[{folder}] >>> Starting Folder Processing (Strategies to run: {len(experiments)})", flush=True)
-        # 一次性加载数据，避免重复读取 IO
+        # Load data once to avoid repeated I/O.
         G, nc, ed, ext = load_all_data(path)
         
-        # 策略依次执行 (串行)
+        # Run strategies sequentially.
         for algo_name, strategy in experiments:
             res_dir = os.path.join(path, f"{algo_name}_result") 
             start_t = time.time()
@@ -467,11 +467,11 @@ def run_ablation_experiment(root_dir: str, max_runtime: float, max_workers: int 
     ]
 
     tasks = []
-    # 收集所有的文件夹任务
+    # Collect all folder tasks.
     for folder in os.listdir(root_dir):
         path = os.path.join(root_dir, folder)
         if os.path.isdir(path) and "dag" in folder:
-            # 任务粒度是 folder，传入整个 experiments 列表
+            # Each task handles a folder and receives the full experiments list.
             tasks.append((path, folder, experiments, max_runtime))
 
     if not tasks:
@@ -481,7 +481,7 @@ def run_ablation_experiment(root_dir: str, max_runtime: float, max_workers: int 
     print(f"Total folders found: {len(tasks)}. Starting parallel processing (by folder) with max_workers={max_workers or 'Auto'}...")
     print("="*80)
 
-    # 以文件夹为粒度投递进进程池
+    # Submit one task per folder to the process pool.
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = {
             executor.submit(process_single_folder_ablation, *task_args): task_args[1]
@@ -501,7 +501,7 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
     parser.add_argument('--root_dir', type=str, default="../data/output")
-    # 添加 workers 控制，默认跑满 CPU
+    # Add worker-count control; use all CPUs by default.
     parser.add_argument('--workers', type=int, default=None, help="Number of parallel processes (folders running concurrently)")
     args = parser.parse_args()
     

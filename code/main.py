@@ -9,7 +9,7 @@ import time
 import itertools
 import re
 
-# --- 配置 ---
+# --- Configuration ---
 
 METHODS = {
     "greedy": "greedy.py",
@@ -23,17 +23,17 @@ METHODS = {
     "qp": "qp.py",
     #"mf": "mf.py",
     "qpbo": "qpbo",
-    # [修改] 注释掉 ILP，使其不参与运行
+    # Comment out ILP to exclude it from execution.
     #"ilp": "ilp.py" 
 }
 
-# 定义难度级别，用于过滤和排序
+# Define difficulty levels for filtering and sorting.
 DIFFICULTY_ORDER = ["EASY", "MEDIUM", "HARD", "medium"]
 
 CODE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.abspath(os.path.join(CODE_DIR, "..", "data", "output"))
 
-# --- 改进的Logger类 ---
+# --- Enhanced logger class ---
 
 class Logger(object):
     def __init__(self, filename):
@@ -59,7 +59,7 @@ class Logger(object):
     def close(self):
         self.log.close()
 
-# --- 脚本执行函数 ---
+# --- Script execution functions ---
 
 def run_method(name, script_name):
     print(f"\n" + "="*50)
@@ -71,7 +71,7 @@ def run_method(name, script_name):
     script_path = os.path.join(CODE_DIR, script_name)
     
     if not os.path.exists(script_path):
-        error_msg = f"❌ 文件不存在: {script_path}"
+        error_msg = f"❌ File not found: {script_path}"
         print(error_msg)
         return name, False, error_msg
     
@@ -115,14 +115,14 @@ def run_method(name, script_name):
 def run_all_methods():
     results = {}
     for name, script_name in METHODS.items():
-        # [修改] 双重保险：如果在运行列表里意外包含了 ilp，在这里也可以跳过
+        # Also skip ilp here if it is accidentally included in the run list.
         if name == "ilp":
             continue
         results[name] = run_method(name, script_name)[1]
         sys.stdout.flush()
     return results
 
-# --- 辅助函数 ---
+# --- Helper functions ---
 
 def calculate_jaccard(set_a, set_b):
     if not set_a and not set_b: return 0.0
@@ -137,19 +137,19 @@ def get_difficulty_rank(category_name):
             return idx
     return 999
 
-# --- 读取结果 ---
+# --- Read results ---
 
 def read_results():
     """
-    读取 output 文件夹结果。
-    已过滤 ILP 信息。
+    Read results from the output directory.
+    Exclude ILP results.
     """
     final_results = defaultdict(lambda: defaultdict(list))
     convergence_data_frames = [] 
     overlap_stats = defaultdict(lambda: defaultdict(list))
 
     if not os.path.exists(DATA_DIR):
-        print(f"❌ 数据目录不存在: {DATA_DIR}")
+        print(f"❌ Data directory not found: {DATA_DIR}")
         return final_results, pd.DataFrame(), {}
 
     print("🔍 Scanning output directories...")
@@ -183,13 +183,13 @@ def read_results():
         except ValueError:
             group_key = folder 
 
-        # [修复] 在这里初始化当前文件夹的节点字典
+        # Initialize the node dictionary for the current folder.
         current_dataset_nodes = {} 
 
-        # 遍历配置的方法 (METHODS)
+        # Iterate over the configured methods (METHODS).
         for method in METHODS.keys():
             
-            # [修改] 强制过滤 ILP：不读取其分数、时间、节点和收敛数据
+            # Exclude ILP scores, times, nodes, and convergence data.
             if method == "ilp":
                 continue
 
@@ -243,14 +243,14 @@ def read_results():
                         
                     nodes_list = pd.to_numeric(vals, errors='coerce').dropna().astype(int).tolist()
                     
-                    # 现在 current_dataset_nodes 已经定义，可以安全赋值
+                    # current_dataset_nodes is now initialized and can be populated safely.
                     current_dataset_nodes[method] = set(nodes_list)
                 except Exception:
                     pass
 
-        # 计算 Jaccard (此时 current_dataset_nodes 中已不包含 ilp)
+        # Compute Jaccard similarity (current_dataset_nodes already excludes ilp).
         if len(current_dataset_nodes) > 1:
-            method_names = list(current_dataset_nodes.keys()) # 只比较实际读取到的方法
+            method_names = list(current_dataset_nodes.keys()) # Compare only methods whose results were loaded.
             for m1, m2 in itertools.combinations_with_replacement(method_names, 2):
                 jaccard_idx = calculate_jaccard(current_dataset_nodes[m1], current_dataset_nodes[m2])
                 overlap_stats[group_key][(m1, m2)].append(jaccard_idx)
@@ -271,16 +271,16 @@ def summarize_results(results):
     
     sorted_keys = sorted(results.keys(), key=lambda x: (get_difficulty_rank(x), x))
 
-    # [修改] 这里不直接遍历 METHODS，而是遍历实际存在于结果中的方法
-    # 这样可以避免表格中出现全空的 ILP 行
+    # Iterate over methods present in the results rather than directly over METHODS.
+    # This avoids empty ILP rows in the table.
     all_observed_methods = set()
     for k in results:
         all_observed_methods.update(results[k].keys())
-    # 过滤掉 ilp (防御性编程)
+    # Exclude ilp defensively.
     display_methods = [m for m in METHODS.keys() if m in all_observed_methods and m != "ilp"]
     
     if not display_methods:
-        # 如果 METHODS 里全是没跑过的，就用 observed
+        # Fall back to observed if none of the configured METHODS has results.
         display_methods = sorted(list(all_observed_methods))
 
     for group_key in sorted_keys:
@@ -306,7 +306,7 @@ def summarize_results(results):
 
 def summarize_overlaps(overlap_stats):
     overlap_summaries = []
-    # 获取所有参与统计的方法名（排除 ilp）
+    # Get all method names included in the statistics (excluding ilp).
     method_list = [m for m in METHODS.keys() if m != "ilp"]
     
     sorted_keys = sorted(overlap_stats.keys(), key=lambda x: (get_difficulty_rank(x), x))
@@ -340,60 +340,60 @@ def summarize_overlaps(overlap_stats):
                     
     return pd.DataFrame(overlap_summaries)
 
-# --- 主函数 ---
+# --- Main function ---
 
 def main():
     print(f"--- Main Runner Started ---")
     sys.stdout.flush()
     
-    # 1. 运行算法
+    # 1. Run algorithms.
     #run_all_methods()
     
     print("\n" + "="*50)
-    print("📊 正在读取和汇总 Benchmark 结果...")
-    print("   (只处理 EASY, MEDIUM, HARD, EXTREME 版本，已屏蔽 ILP)")
+    print("📊 Reading and aggregating benchmark results...")
+    print("   (EASY, MEDIUM, HARD, EXTREME versions only; ILP excluded)")
     print("="*50)
     sys.stdout.flush()
     
-    # 2. 读取
+    # 2. Read results.
     final_results_dict, convergence_df, overlap_stats = read_results()
     
     # 3. Performance Summary
     summary_df = summarize_results(final_results_dict)
-    print("\n📊 性能汇总表 (按难度排序):")
+    print("\n📊 Performance summary (sorted by difficulty):")
     if summary_df.empty:
-        print("  (汇总表为空 - 未找到符合条件的 benchmark 结果)")
+        print("  (Empty summary - no matching benchmark results found)")
     else:
         print(summary_df.head(20).to_string())
     
     summary_path = os.path.join(CODE_DIR, "summary.csv")
     try:
         summary_df.to_csv(summary_path, index=False)
-        print(f"\n✅ 性能汇总 CSV 已保存到: {summary_path}")
+        print(f"\n✅ Performance summary CSV saved to: {summary_path}")
     except Exception as e:
-        print(f"\n❌ 保存 CSV 失败: {e}")
+        print(f"\n❌ Failed to save CSV: {e}")
 
     # 4. Convergence Summary
     conv_path = os.path.join(CODE_DIR, "convergence_summary.csv")
     if not convergence_df.empty:
         try:
             convergence_df.to_csv(conv_path, index=False)
-            print(f"✅ 收敛历史总表 CSV 已保存到: {conv_path} (Rows: {len(convergence_df)})")
+            print(f"✅ Convergence history CSV saved to: {conv_path} (Rows: {len(convergence_df)})")
         except Exception as e:
-            print(f"❌ 保存收敛表失败: {e}")
+            print(f"❌ Failed to save convergence CSV: {e}")
     else:
-        print("⚠️ 未找到任何收敛数据。")
+        print("⚠️ No convergence data found.")
 
     # 5. Overlap Summary
-    print("\n🔗 节点重合度分析:")
+    print("\n🔗 Node overlap analysis:")
     overlap_df = summarize_overlaps(overlap_stats)
     overlap_path = os.path.join(CODE_DIR, "overlap_summary.csv")
     if not overlap_df.empty:
         try:
             overlap_df.to_csv(overlap_path, index=False)
-            print(f"✅ 节点重合度汇总 CSV 已保存到: {overlap_path}")
+            print(f"✅ Node overlap summary CSV saved to: {overlap_path}")
         except Exception as e:
-            print(f"❌ 保存重合度表失败: {e}")
+            print(f"❌ Failed to save overlap CSV: {e}")
 
     sys.stdout.flush()
 
@@ -408,13 +408,13 @@ if __name__ == "__main__":
     try:
         main()
         
-        # 绘图
+        # Plot results.
         plot_script_path = os.path.join(CODE_DIR, "plot_summary.py")
         if os.path.exists(plot_script_path):
             print("\n" + "="*50)
-            print("📊 正在调用绘图脚本...")
+            print("📊 Running the plotting script...")
             subprocess.run([sys.executable, plot_script_path], cwd=CODE_DIR)
-            print("✅ 绘图脚本执行完毕")
+            print("✅ Plotting script completed")
         
     except Exception as e:
         print(f"\n❌ Fatal Error: {e}")

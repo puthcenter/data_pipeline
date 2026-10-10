@@ -8,18 +8,18 @@ from collections import defaultdict
 import argparse
 from typing import List, Dict, Set, Tuple, Optional
 
-# 新增并发库
+# Multiprocessing support
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # ==============================================================================
-# --- 0. 改进的记录器类 (Event-Driven & Time-Driven) ---
+# --- 0. Enhanced tracker class (event-driven & time-driven) ---
 # ==============================================================================
 class ConvergenceTracker:
     def __init__(self, algorithm_name, dataset_name, save_path="convergence.csv", log_interval=50.0):
         self.algorithm_name = algorithm_name
         self.dataset_name = dataset_name
         self.save_path = save_path
-        self.log_interval = log_interval  # 监控间隔
+        self.log_interval = log_interval  # Monitoring interval
         
         self.start_time = time.time()
         self.last_log_time = self.start_time
@@ -27,37 +27,37 @@ class ConvergenceTracker:
         self.history = []
         self.current_best_value = -float('inf')
         
-        # 初始记录
+        # Initial record
         self._log(0.0, -float('inf'))
 
     def update(self, value, round_num=None):
         """
         [Event-Driven]
-        仅当发现更好的解时调用。
-        返回 True 表示发现了新最优解，False 表示未发现。
+        Call only when a better solution is found.
+        Return True if a new best solution is found, otherwise False.
         """
         if value > self.current_best_value + 1e-9:
             self.current_best_value = value
             elapsed = time.time() - self.start_time
             
-            # 记录数据 (带轮数)
+            # Record data, including the iteration number.
             self._log(elapsed, value, round_num)
             
-            # 【改动】：添加数据集名称前缀和 flush
+            # Prefix output with the dataset name and flush immediately.
             msg = f"[{self.dataset_name}] [Monitor] New Best: {value:,.2f} @ {elapsed:.2f}s"
             if round_num is not None:
                 msg += f" | Round: {round_num}"
             print(msg, flush=True)
             
             self.save_to_csv()
-            self.last_log_time = time.time() # 重置定时器
+            self.last_log_time = time.time() # Reset the timer.
             return True
         return False
 
     def tick(self):
         """
         [Time-Driven]
-        周期性记录 (Fill-forward)，不打印 New Best，只记录数据。
+        Periodically record data using forward fill, without printing a New Best message.
         """
         now = time.time()
         if now - self.last_log_time >= self.log_interval:
@@ -94,7 +94,7 @@ def _safe_float(x):
     except: return 0.0
 
 # ==============================================================================
-# --- 1. 数据加载与结果保存 (保持不变) ---
+# --- 1. Data loading and result saving (unchanged) ---
 # ==============================================================================
 def load_all_data(folder: str):
     node_df = pd.read_csv(os.path.join(folder, "nodes.csv"))
@@ -149,7 +149,7 @@ def save_result(output_dir, selected_nodes, selected_edges, score, duration, res
     with open(os.path.join(output_dir, 'result_nodes_count.txt'), 'w') as f: f.write(str(len(res_nodes)))
 
 # ==============================================================================
-# --- 2. 增量状态管理器 (Incremental State) (保持不变) ---
+# --- 2. Incremental state manager (unchanged) ---
 # ==============================================================================
 class IncrementalScoreState:
     def __init__(self, G, externality_dict, ancestor_cache):
@@ -225,7 +225,7 @@ class IncrementalScoreState:
         return {n for n, c in self.ref_counts.items() if c > 0}
 
 # ==============================================================================
-# --- 3. Shapley 估算 (Analytical) (保持不变) ---
+# --- 3. Analytical Shapley estimation (unchanged) ---
 # ==============================================================================
 def estimate_shapley_values_analytical(leaf_closures, node_values, node_costs, externality_dict):
     node_usage_counts = defaultdict(int)
@@ -264,7 +264,7 @@ def perturb_solution(base_solution: Set[int], all_candidates: List[int], perturb
     return new_set
 
 # ==============================================================================
-# --- 4. 爬山法逻辑 (Modified) (保持不变) ---
+# --- 4. Hill-climbing logic (modified version, unchanged here) ---
 # ==============================================================================
 def _greedy_descent_pass_incremental(
     state: IncrementalScoreState, 
@@ -273,7 +273,7 @@ def _greedy_descent_pass_incremental(
     deadline: float
 ):
     """
-    单次爬山下降过程。
+    Perform a single hill-climbing pass.
     """
     improvement_found = True
     candidates = list(all_result_nodes)
@@ -287,7 +287,7 @@ def _greedy_descent_pass_incremental(
         
         improvement_found = False
         for i, node in enumerate(candidates):
-            # 心跳检查：每 100 个节点检查一次是否需要记录 Time-Driven log
+            # Every 100 nodes, check whether a time-driven log entry is due.
             if i % 100 == 0:
                 tracker.tick()
                 if time.time() > deadline: break
@@ -312,7 +312,7 @@ def _greedy_descent_pass_incremental(
     return local_best_score, steps
 
 # ==============================================================================
-# --- 5. 统一求解接口 (Modified Logic) ---
+# --- 5. Unified solver interface (modified logic) ---
 # ==============================================================================
 def run_solver(
     G: nx.DiGraph, 
@@ -326,7 +326,7 @@ def run_solver(
 ):
     os.makedirs(result_dir, exist_ok=True)
     
-    # 1. 初始化 Tracker
+    # 1. Initialize the tracker.
     tracker = ConvergenceTracker(
         algorithm_name, 
         dataset_name, 
@@ -342,11 +342,11 @@ def run_solver(
         tracker.finalize(max_runtime)
         return set(), [], 0.0, set()
     
-    # 预计算
+    # Precomputation
     node_values = {n: G.nodes[n]['value'] for n in all_res}
     ancestor_cache = {r: set(nx.ancestors(G, r)) | {r} for r in all_res}
     
-    # 【改动】：添加数据集名称前缀和 flush
+    # Prefix output with the dataset name and flush immediately.
     print(f"[{dataset_name}] [{algorithm_name.upper()}] Computing Shapley Values...", flush=True)
     shapley_values = estimate_shapley_values_analytical(
         ancestor_cache, node_values, node_costs, externality_dict
@@ -377,11 +377,11 @@ def run_solver(
     ratio_idx = 0
     restart_count = 0
     
-    # [逻辑控制变量]
-    perturbation_mode = False # 是否已进入微扰阶段
-    stop_search = False       # 是否停止搜索
+    # Search-control variables
+    perturbation_mode = False # Whether the perturbation phase has started
+    stop_search = False       # Whether to stop the search
 
-    # 【改动】：添加数据集名称前缀和 flush
+    # Prefix output with the dataset name and flush immediately.
     print(f"[{dataset_name}] [{algorithm_name.upper()}] Start ILS Loop... Budget: {max_runtime}s", flush=True)
 
     while time.time() < deadline:
@@ -392,9 +392,9 @@ def run_solver(
         is_new_best = False
         strategy = ""
         
-        # A. 策略选择
+        # A. Select a strategy.
         if ratio_idx < len(ratios_to_try):
-            # --- 阶段一：分层比例搜索 ---
+            # --- Phase 1: Stratified proportion search ---
             curr_ratio = ratios_to_try[ratio_idx]
             count = int(n_candidates * curr_ratio)
             init_set = set(sorted_candidates[:count])
@@ -402,16 +402,16 @@ def run_solver(
             ratio_idx += 1
             perturbation_mode = False 
         else:
-            # --- 阶段二：微扰搜索 (Iterative Perturbation) ---
+            # --- Phase 2: Iterative perturbation search ---
             perturbation_mode = True
             strategy = "Perturb-Best"
-            # 基于当前全局最优解进行微扰
+            # Perturb the current global best solution.
             init_set = perturb_solution(best_global_solution, all_res, perturb_strength=0.05)
             
-        # B. 初始化
+        # B. Initialize.
         state.initialize(init_set)
         
-        # [Check 1] 刚初始化（微扰后），检查这是否已经打破记录（运气好）
+        # [Check 1] Check whether initialization after perturbation already improves the best score.
         improved_at_start = False
         if tracker.update(state.current_score, round_num=restart_count):
             best_global_score = state.current_score
@@ -419,12 +419,12 @@ def run_solver(
             is_new_best = True 
             improved_at_start = True
             
-        # C. 爬山
+        # C. Hill climbing
         local_opt, steps = _greedy_descent_pass_incremental(
             state, all_res, tracker, deadline
         )
         
-        # [Check 2] 爬山结束，检查局部最优是否打破全局记录
+        # [Check 2] Check whether the local optimum improves the global best score.
         improved_at_hc = False
         if tracker.update(local_opt, round_num=restart_count):
             best_global_score = local_opt
@@ -432,23 +432,23 @@ def run_solver(
             is_new_best = True 
             improved_at_hc = True
         
-        # D. 停止逻辑判断 (仅针对微扰阶段)
+        # D. Check the stopping condition (perturbation phase only).
         if perturbation_mode:
-            # 如果处于微扰阶段，且：
-            # 1. 微扰后的起始点没有更好 (improved_at_start == False)
-            # 2. 爬山后的终点也没有更好 (improved_at_hc == False)
-            # 说明本轮微扰+爬山无效，达到收敛，结束循环。
+            # In the perturbation phase, if:
+            # 1. The perturbed starting point does not improve the score (improved_at_start == False), and
+            # 2. The hill-climbing endpoint does not improve it either (improved_at_hc == False),
+            # this perturbation and hill-climbing round made no progress; stop the loop as converged.
             if not (improved_at_start or improved_at_hc):
-                # 【改动】：添加数据集名称前缀和 flush
+                # Prefix output with the dataset name and flush immediately.
                 print(f"[{dataset_name}] [Stop] No improvement in perturbation round. Convergence reached.", flush=True)
                 stop_search = True
 
-        # 周期性记录心跳 (外层)
+        # Record a periodic heartbeat in the outer loop.
         tracker.tick()
         
-        # 打印日志
+        # Print logs.
         if "Stratified" in strategy or is_new_best or strategy == "Perturb-Best":
-            # 【改动】：添加数据集名称前缀和 flush
+            # Prefix output with the dataset name and flush immediately.
             log_msg = f"[{dataset_name}] [Restart {restart_count}] {strategy:<20} | Best: {best_global_score:,.0f} | Steps: {steps}"
             if perturbation_mode and is_new_best:
                 log_msg += " (Improved -> Continue)"
@@ -456,7 +456,7 @@ def run_solver(
 
     tracker.finalize(max_runtime)
     
-    # 结果构建
+    # Build the result.
     state.initialize(best_global_solution)
     final_full_nodes = state.get_full_closure_nodes()
     
@@ -471,10 +471,10 @@ def run_solver(
     return final_full_nodes, final_selected_edges, best_global_score, best_global_solution
 
 # ==============================================================================
-# --- 6. 执行入口 ---
+# --- 6. Entry point ---
 # ==============================================================================
 
-# 【改动】：抽离单进程任务逻辑
+# Extract the single-process task logic.
 def process_single_folder(path: str, folder: str, algo_name: str, max_runtime: float):
     try:
         print(f"[{folder}] >>> Starting Processing (Algo: {algo_name})", flush=True)
@@ -503,7 +503,7 @@ def process_single_folder(path: str, folder: str, algo_name: str, max_runtime: f
         print(f"[{folder}] ERROR:\n{error_msg}", flush=True)
         return folder, False
 
-# 【改动】：引入 ProcessPoolExecutor 实现多进程调度
+# Use ProcessPoolExecutor to schedule tasks across processes.
 def run_experiment(root_dir: str, algo_name: str, max_runtime: float, max_workers: int = None):
     if not os.path.exists(root_dir):
         print(f"Error: Directory {root_dir} does not exist.")
@@ -542,7 +542,7 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
     parser.add_argument('--root_dir', type=str, default="../data/output")
-    # 增加 workers 参数
+    # Add the workers argument.
     parser.add_argument('--workers', type=int, default=None, help="Number of parallel processes")
     args = parser.parse_args()
     

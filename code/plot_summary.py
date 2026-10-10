@@ -6,7 +6,7 @@ import os
 from scipy import interpolate
 import matplotlib.ticker as ticker
 
-# --- 配置 ---
+# --- Configuration ---
 CODE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_BASE_DIR = os.path.abspath(os.path.join(CODE_DIR, "..", "data", "output"))
 
@@ -22,7 +22,7 @@ MATRIX_DIR = os.path.join(OUTPUT_DIR, "similarity")
 for d in [DETAIL_DIR, AVG_DIR, MATRIX_DIR]:
     os.makedirs(d, exist_ok=True)
 
-# 【修改点 2】全局字体基准放大至 2.0
+# Increase the global font scale to 2.0.
 sns.set_theme(style="white", context="paper", font_scale=2.0)
 
 plt.rcParams.update({
@@ -30,7 +30,7 @@ plt.rcParams.update({
     'font.sans-serif': ['Arial', 'Helvetica', 'DejaVu Sans'],
     'axes.unicode_minus': False, 
     'axes.edgecolor': 'black',    
-    'axes.linewidth': 1.5,        # 稍微加粗边框适应大图
+    'axes.linewidth': 1.5,        # Slightly thicken borders for larger plots.
     'axes.grid': False,           
     'xtick.bottom': True,         
     'xtick.top': True,            
@@ -41,21 +41,21 @@ plt.rcParams.update({
     'xtick.color': 'black',       
     'ytick.color': 'black',       
     
-    # 【修改点 2】显式设置各大元素的字体大小
+    # Set font sizes explicitly for the main plot elements.
     'axes.labelsize': 22,         
     'xtick.labelsize': 18,        
     'ytick.labelsize': 18,        
     'legend.fontsize': 18, 
     
-    # 【修改点 1】图例透明化配置
+    # Configure legend transparency.
     'legend.frameon': True,       
-    'legend.framealpha': 0.8,     # 半透明
+    'legend.framealpha': 0.8,     # Semi-transparent
     'legend.edgecolor': 'gray',  
     'legend.facecolor': 'white',  
     'legend.fancybox': False,     
 })
 
-COMMON_LINE_WIDTH = 2.0 # 稍微加粗线条适应大图
+COMMON_LINE_WIDTH = 2.0 # Slightly thicken lines for larger plots.
 
 ALGO_CONFIG = {
     'sasa':   {'color': '#D62728', 'ls': '-', 'marker': 'o', 'zorder': 10}, 
@@ -69,7 +69,7 @@ ALGO_CONFIG = {
 DEFAULT_CONFIG = {'color': 'gray', 'ls': '--', 'marker': '.', 'zorder': 1}
 MAX_PLOT_TIME = 3200 
 
-# --- 辅助函数 ---
+# --- Helper functions ---
 def get_ilp_score_for_instance(dataset_name):
     try:
         score_path = os.path.join(DATA_BASE_DIR, dataset_name, "ilp_result", "score.txt")
@@ -90,10 +90,10 @@ def clean_data(df):
         df['Best_Value'] = df['Best_Value'].clip(lower=0.0)
     return df
 
-# --- 绘图函数 ---
+# --- Plotting functions ---
 
 def plot_individual_datasets(df):
-    print("\n🎨 正在生成 [单独数据集] 详情图...")
+    print("\n🎨 Generating per-dataset detail plots...")
     datasets = df['Dataset'].unique()
     palette = {k: v['color'] for k, v in ALGO_CONFIG.items()}
     markers = {k: v['marker'] for k, v in ALGO_CONFIG.items()}
@@ -117,21 +117,21 @@ def plot_individual_datasets(df):
         max_val = data_subset['Best_Value'].max()
         if ilp_score is not None:
             ax.axhline(y=ilp_score, color='#C00000', linestyle='--', linewidth=2.0, label='ILP (Optimal)')
-            # 【修改点 2】放大最优解提示字体
+            # Enlarge the optimal-solution annotation.
             ax.text(x=MAX_PLOT_TIME*0.02 if MAX_PLOT_TIME else 10, y=ilp_score, 
                     s=f" Optimal: {ilp_score:.0f}", color='#C00000', va='bottom', fontweight='bold', fontsize=18)
             max_val = max(max_val, ilp_score)
         
-        # 【修改点 2】放大坐标轴标签
+        # Enlarge axis labels.
         ax.set_xlabel("Time (s)", fontsize=22, fontweight='bold')
         ax.set_ylabel("Best Score", fontsize=22, fontweight='bold')
         ax.set_xlim(0, MAX_PLOT_TIME if MAX_PLOT_TIME else None)
         ax.set_ylim(bottom=0, top=max_val * 1.05) 
         
-        # 【修改点 3】强制 X 轴每隔 1000 标一个刻度，防止文字重叠
+        # Place X-axis ticks every 1000 units to prevent label overlap.
         ax.xaxis.set_major_locator(ticker.MultipleLocator(1000))
         
-        # 【修改点 1】图例透明化且置顶
+        # Use a transparent legend and draw it on top.
         leg = ax.legend(loc='lower right', frameon=True, fontsize=18)
         leg.set_zorder(100)
         leg.get_frame().set_alpha(0.8)
@@ -141,7 +141,7 @@ def plot_individual_datasets(df):
         plt.close()
 
 def plot_averaged_categories(conv_df, summary_df):
-    print("\n🎨 正在生成 [平均] 对比图 (已移除方差阴影)...")
+    print("\n🎨 Generating average comparison plots (without variance shading)...")
     
     categories = conv_df['Category'].unique()
     
@@ -201,17 +201,17 @@ def plot_averaged_categories(conv_df, summary_df):
                 ilp_avg = ilp_row.iloc[0]['Average_Score']
                 if ilp_avg > global_max_y: global_max_y = ilp_avg
                 ax.axhline(y=ilp_avg, color='#C00000', linestyle='--', linewidth=2.0, label='ILP Avg', zorder=1)
-                # 【修改点 2】放大最优解提示字体
+                # Enlarge the optimal-solution annotation.
                 ax.text(x=target_max_time*0.02, y=ilp_avg, s=f" Optimal: {ilp_avg:.0f}", 
                         color='#C00000', va='bottom', fontweight='bold', fontsize=18)
 
-        # 【修改点 2】放大坐标轴标签
+        # Enlarge axis labels.
         ax.set_xlabel("Time (s)", fontsize=22, fontweight='bold')
         ax.set_ylabel("Average Score", fontsize=22, fontweight='bold')
         ax.set_xlim(0, target_max_time)
         ax.set_ylim(bottom=0, top=global_max_y * 1.05)
         
-        # 【修改点 3】强制 X 轴每隔 1000 标一个刻度
+        # Place X-axis ticks every 1000 units.
         ax.xaxis.set_major_locator(ticker.MultipleLocator(1000))
 
         ax.yaxis.set_major_formatter(ticker.ScalarFormatter(useMathText=True))
@@ -225,7 +225,7 @@ def plot_averaged_categories(conv_df, summary_df):
         hl = sorted(zip(handles, labels), key=lambda x: legend_priority(x[1]), reverse=True)
         if hl:
             handles_sorted, labels_sorted = zip(*hl)
-            # 【修改点 1】图例透明化且置顶
+            # Use a transparent legend and draw it on top.
             leg = ax.legend(handles_sorted, labels_sorted, loc='lower right', frameon=True, fontsize=18)
             leg.set_zorder(100)
             leg.get_frame().set_alpha(0.8)
@@ -235,7 +235,7 @@ def plot_averaged_categories(conv_df, summary_df):
         plt.close()
 
 def plot_similarity_matrix(overlap_file):
-    print("\n🎨 正在生成 [相似度] 热力图...")
+    print("\n🎨 Generating similarity heatmaps...")
     if not os.path.exists(overlap_file): return
     try:
         df = pd.read_csv(overlap_file)
@@ -249,20 +249,20 @@ def plot_similarity_matrix(overlap_file):
         cat_df = df[df['Category'] == cat]
         pivot_table = cat_df.pivot(index="Method_A", columns="Method_B", values="Avg_Jaccard_Similarity")
         
-        # 适当拉宽图表防止轴标签和内容重叠
+        # Widen the plot to prevent axis labels from overlapping the content.
         fig, ax = plt.subplots(figsize=(8, 6))
         
-        # 【修改点 2】放大了热力图内部数字 (annot_kws)
+        # Enlarge the numbers inside the heatmap (annot_kws).
         sns.heatmap(pivot_table, annot=True, cmap="Blues", vmin=0, vmax=1, fmt=".2f", 
                     linewidths=0.5, linecolor='black', ax=ax, 
                     cbar_kws={'label': 'Jaccard Similarity'},
                     annot_kws={"size": 16})
                     
-        # 【修改点 2】放大坐标轴标签
+        # Enlarge axis labels.
         ax.set_xlabel("Method B", fontsize=18, fontweight='bold')
         ax.set_ylabel("Method A", fontsize=18, fontweight='bold')
         
-        # 调整颜色条(colorbar)标签大小
+        # Adjust the colorbar label size.
         cbar = ax.collections[0].colorbar
         cbar.ax.tick_params(labelsize=14)
         cbar.set_label('Jaccard Similarity', size=16, weight='bold')
@@ -273,17 +273,17 @@ def plot_similarity_matrix(overlap_file):
 
 def process_and_plot():
     if os.path.exists(CONV_FILE):
-        print("📖 读取收敛数据...")
+        print("📖 Reading convergence data...")
         conv_df = pd.read_csv(CONV_FILE)
         
         conv_df['Algorithm'] = conv_df['Algorithm'].replace('qp', 'qpr')
         conv_df = clean_data(conv_df)
     else:
-        print(f"⚠️ 找不到: {CONV_FILE}")
+        print(f"⚠️ File not found: {CONV_FILE}")
         return
 
     if os.path.exists(SUMMARY_FILE):
-        print("📖 读取汇总数据...")
+        print("📖 Reading summary data...")
         summary_df = pd.read_csv(SUMMARY_FILE)
         if 'Average_Score' in summary_df.columns:
             summary_df['Average_Score'] = summary_df['Average_Score'].clip(lower=0.0)
@@ -296,4 +296,4 @@ def process_and_plot():
 
 if __name__ == "__main__":
     process_and_plot()
-    print("\n✨ 所有绘图任务已完成！")
+    print("\n✨ All plotting tasks completed!")

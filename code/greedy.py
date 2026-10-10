@@ -6,16 +6,16 @@ from collections import defaultdict
 import argparse
 from typing import List, Dict, Set, Tuple
 
-# 新增并发库
+# Multiprocessing support
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # ==============================================================================
-# --- 0. 基础工具类 ---
+# --- 0. Utility classes ---
 # ==============================================================================
 class ConvergenceTracker:
     def __init__(self, algorithm_name, dataset_name, save_path="convergence.csv", log_interval=1.0):
         self.algorithm_name = algorithm_name
-        self.dataset_name = dataset_name  # 保存当前数据集名称
+        self.dataset_name = dataset_name  # Store the current dataset name.
         self.save_path = save_path
         self.log_interval = log_interval
         
@@ -34,7 +34,7 @@ class ConvergenceTracker:
             
             self._log(elapsed, value, round_num)
             
-            # 【改动 1】：在输出前面加上 [数据集名称] 作为 Tag，并强制刷新缓冲
+            # Prefix output with the dataset name and flush the buffer immediately.
             msg = f"[{self.dataset_name}] [{self.algorithm_name.upper()}] Best: {value:,.2f} @ {elapsed:.2f}s"
             if round_num is not None:
                 msg += f" | Step: {round_num}"
@@ -73,11 +73,11 @@ def _safe_float(x):
     except: return 0.0
 
 # ==============================================================================
-# --- 1. 数据加载 & 2. 增量计算状态管理器 ---
-# (这部分代码无需改动，保持你原来的逻辑)
+# --- 1. Data loading & 2. Incremental state manager ---
+# (Preserve the existing logic in this section.)
 # ==============================================================================
 def load_all_data(folder: str):
-    # ... (保持原样) ...
+    # ... (unchanged) ...
     node_df = pd.read_csv(os.path.join(folder, "nodes.csv"))
     edge_df = pd.read_csv(os.path.join(folder, "edges.csv"))
     G = nx.DiGraph()
@@ -113,7 +113,7 @@ def load_all_data(folder: str):
     return G, node_costs, edges_data, externality_dict
 
 def save_result(output_dir, selected_nodes, selected_edges, score, duration, res_nodes):
-    # ... (保持原样) ...
+    # ... (unchanged) ...
     os.makedirs(output_dir, exist_ok=True)
     pd.DataFrame({'id': sorted(list(selected_nodes))}).to_csv(os.path.join(output_dir, 'sub_nodes.csv'), index=False)
     
@@ -131,7 +131,7 @@ def save_result(output_dir, selected_nodes, selected_edges, score, duration, res
     with open(os.path.join(output_dir, 'result_nodes_count.txt'), 'w') as f: f.write(str(len(res_nodes)))
 
 class CachedGreedyState:
-    # ... (保持原样) ...
+    # ... (unchanged) ...
     def __init__(self, G, node_costs, externality_dict, all_result_nodes):
         self.node_costs = node_costs
         self.node_vals = {n: d.get('value', 0.0) for n, d in G.nodes(data=True)}
@@ -198,7 +198,7 @@ class CachedGreedyState:
         return {anc for anc, users in self.ancestor_to_users.items() if len(users) > 0}
 
 # ==============================================================================
-# --- 3. 求解逻辑 ---
+# --- 3. Solver logic ---
 # ==============================================================================
 def run_solver(
     G: nx.DiGraph, 
@@ -227,7 +227,7 @@ def run_solver(
         tracker.finalize(max_runtime)
         return set(), [], 0.0, set()
     
-    # 【改动 2】：添加 dataset_name 前缀
+    # Add the dataset_name prefix.
     print(f"[{dataset_name}] [{algorithm_name.upper()}] Init State with {len(all_res)} nodes...", flush=True)
     
     state = CachedGreedyState(G, node_costs, externality_dict, all_res)
@@ -237,7 +237,7 @@ def run_solver(
     initial_candidates = [(r, state.current_gains[r]) for r in state.active_results]
     initial_candidates.sort(key=lambda x: x[1], reverse=True)
     
-    # 【改动 2】：添加 dataset_name 前缀
+    # Add the dataset_name prefix.
     print(f"[{dataset_name}] [STATIC] Pre-calculated order for {len(initial_candidates)} nodes.", flush=True)
     
     step = 0
@@ -267,10 +267,10 @@ def run_solver(
     return final_nodes, final_edges, state.current_score, final_result_nodes
 
 # ==============================================================================
-# --- 执行入口 ---
+# --- Entry point ---
 # ==============================================================================
 
-# 【改动 3】：将对单个文件夹的处理逻辑抽离为一个独立函数，以便被多进程调用
+# Extract single-folder processing into a separate function for multiprocessing.
 def process_single_folder(path: str, folder: str, algo_name: str, max_runtime: float):
     try:
         print(f"[{folder}] >>> Starting Processing (Algo: {algo_name})", flush=True)
@@ -294,18 +294,18 @@ def process_single_folder(path: str, folder: str, algo_name: str, max_runtime: f
         return folder, True
     
     except Exception as e:
-        # 多进程中异常追踪栈容易丢失，手动打印
+        # Print the traceback explicitly so worker-process exceptions are visible.
         import traceback
         error_msg = traceback.format_exc()
         print(f"[{folder}] ERROR:\n{error_msg}", flush=True)
         return folder, False
 
 
-# 【改动 4】：主执行函数使用进程池进行并发
+# Use a process pool for concurrent execution.
 def run_experiment(root_dir, algo_name, max_runtime, max_workers=None):
     if not os.path.exists(root_dir): return
     
-    # 收集所有需要处理的任务
+    # Collect all tasks to process.
     tasks = []
     for folder in os.listdir(root_dir):
         path = os.path.join(root_dir, folder)
@@ -319,21 +319,21 @@ def run_experiment(root_dir, algo_name, max_runtime, max_workers=None):
     print(f"Total tasks found: {len(tasks)}. Starting parallel processing with max_workers={max_workers or 'Auto'}...")
     print("="*80)
 
-    # 使用 ProcessPoolExecutor 进行并行处理
-    # max_workers 默认为 None 时，会自动设置为机器的 CPU 核心数
+    # Run tasks in parallel with ProcessPoolExecutor.
+    # When max_workers is None, the worker count defaults to the machine's CPU count.
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        # 提交所有任务
+        # Submit all tasks.
         futures = {
             executor.submit(process_single_folder, *task_args): task_args[1] 
             for task_args in tasks
         }
         
-        # 等待结果（如果需要统计完成进度，可以在这里做）
+        # Wait for results; completion progress can be tracked here.
         completed_count = 0
         for future in as_completed(futures):
             folder_name = futures[future]
             completed_count += 1
-            # 获取函数的返回值 (folder, success_bool)
+            # Retrieve the return value (folder, success_bool).
             _, success = future.result() 
             status = "SUCCESS" if success else "FAILED"
             print(f"--- System: Progress {completed_count}/{len(tasks)} ({folder_name} {status}) ---", flush=True)
@@ -344,9 +344,9 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
     parser.add_argument('--root_dir', type=str, default="../data/output")
-    # 允许命令行指定并行进程数，如果不填则自动拉满CPU
+    # Allow a command-line worker count; use all CPUs by default.
     parser.add_argument('--workers', type=int, default=None, help="Number of parallel processes")
     args = parser.parse_args()
     
-    # 开始实验
+    # Start the experiments.
     run_experiment(args.root_dir, ALGO_NAME, MAX_RUNTIME, max_workers=args.workers)

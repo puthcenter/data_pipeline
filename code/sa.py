@@ -8,11 +8,11 @@ from collections import defaultdict
 import argparse
 from typing import List, Dict, Set, Tuple, Optional
 
-# 新增并发库
+# Multiprocessing support
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # ==============================================================================
-# --- 0. 改进的记录器类 (ConvergenceTracker) ---
+# --- 0. Enhanced tracker class (ConvergenceTracker) ---
 # ==============================================================================
 class ConvergenceTracker:
     def __init__(self, algorithm_name, dataset_name, save_path="convergence.csv", log_interval=50.0):
@@ -30,13 +30,13 @@ class ConvergenceTracker:
         self._log(0.0, -float('inf'))
 
     def update(self, value, round_num=None):
-        """仅当发现更好的解时调用"""
+        """Call only when a better solution is found."""
         if value > self.current_best_value + 1e-9:
             self.current_best_value = value
             elapsed = time.time() - self.start_time
             self._log(elapsed, value, round_num)
             
-            # 【改动】：添加数据集名称前缀和 flush
+            # Prefix output with the dataset name and flush immediately.
             msg = f"[{self.dataset_name}] [Monitor] New Best: {value:,.2f} @ {elapsed:.2f}s"
             if round_num is not None:
                 msg += f" | Round: {round_num}"
@@ -48,7 +48,7 @@ class ConvergenceTracker:
         return False
 
     def tick(self):
-        """时间驱动记录"""
+        """Record a time-driven log entry."""
         now = time.time()
         if now - self.last_log_time >= self.log_interval:
             elapsed = now - self.start_time
@@ -84,7 +84,7 @@ def _safe_float(x):
     except: return 0.0
 
 # ==============================================================================
-# --- 1. 数据加载 (保持不变) ---
+# --- 1. Data loading (unchanged) ---
 # ==============================================================================
 def load_all_data(folder: str):
     node_df = pd.read_csv(os.path.join(folder, "nodes.csv"))
@@ -139,7 +139,7 @@ def save_result(output_dir, selected_nodes, selected_edges, score, duration, res
     with open(os.path.join(output_dir, 'result_nodes_count.txt'), 'w') as f: f.write(str(len(res_nodes)))
 
 # ==============================================================================
-# --- 2. 修正后的增量状态管理器 (保持不变) ---
+# --- 2. Corrected incremental state manager (unchanged) ---
 # ==============================================================================
 class IncrementalScoreState:
     def __init__(self, G, externality_dict, ancestor_cache):
@@ -229,7 +229,7 @@ class IncrementalScoreState:
         return {n for n, c in self.ref_counts.items() if c > 0}
 
 # ==============================================================================
-# --- 3. 求解逻辑 (SA Solver) ---
+# --- 3. Solver logic (SA solver) ---
 # ==============================================================================
 def run_solver(
     G: nx.DiGraph, 
@@ -269,7 +269,7 @@ def run_solver(
     state_manager = IncrementalScoreState(G, externality_dict, ancestor_cache)
     cycle_idx = 0
     
-    # 【改动】：添加数据集名称前缀和 flush
+    # Prefix output with the dataset name and flush immediately.
     print(f"[{dataset_name}] [{algorithm_name.upper()}] Start Random Restart SA... Budget: {max_runtime}s", flush=True)
 
     while time.time() < deadline:
@@ -351,10 +351,10 @@ def run_solver(
     return final_nodes, final_edges, global_best_score, global_best_sol
 
 # ==============================================================================
-# --- 执行入口 ---
+# --- Entry point ---
 # ==============================================================================
 
-# 【改动】：剥离单进程任务逻辑
+# Extract the single-process task logic.
 def process_single_folder(path: str, folder: str, algo_name: str, max_runtime: float):
     try:
         print(f"[{folder}] >>> Starting Processing (Algo: {algo_name})", flush=True)
@@ -383,7 +383,7 @@ def process_single_folder(path: str, folder: str, algo_name: str, max_runtime: f
         print(f"[{folder}] ERROR:\n{error_msg}", flush=True)
         return folder, False
 
-# 【改动】：实现多进程并发调度
+# Schedule tasks concurrently across processes.
 def run_experiment(root: str, algo_name: str, max_runtime: float, max_workers: int = None):
     if not os.path.exists(root):
         print(f"Error: Directory {root} does not exist.")
@@ -392,7 +392,7 @@ def run_experiment(root: str, algo_name: str, max_runtime: float, max_workers: i
     tasks = []
     for folder in os.listdir(root):
         path = os.path.join(root, folder)
-        # 根据原代码逻辑，过滤出含有 "dag" 的文件夹
+        # Keep folders containing "dag", following the original filtering logic.
         if os.path.isdir(path) and "dag" in folder:
             tasks.append((path, folder, algo_name, max_runtime))
 
@@ -423,7 +423,7 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
     parser.add_argument('--root_dir', type=str, default="../data/output")
-    # 添加 workers 参数以支持并行数配置
+    # Add a workers argument to configure the parallel process count.
     parser.add_argument('--workers', type=int, default=None, help="Number of parallel processes")
     args = parser.parse_args()
     
